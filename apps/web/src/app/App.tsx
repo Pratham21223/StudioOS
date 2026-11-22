@@ -98,6 +98,11 @@ const PortalContentPage = lazy(() =>
     default: module.PortalContentPage,
   })),
 );
+const LandingPage = lazy(() =>
+  import("../features/marketing/LandingPage").then((module) => ({
+    default: module.LandingPage,
+  })),
+);
 const OverviewPage = lazy(() =>
   import("../features/organizations/OverviewPage").then((module) => ({
     default: module.OverviewPage,
@@ -162,7 +167,7 @@ function HomeRedirect() {
   const { user, memberships, clientMemberships, loading } = useAuth();
 
   if (loading) return <BootScreen />;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <LandingPage />;
   if (memberships.length > 0) {
     return <Navigate to={`/orgs/${memberships[0]!.organization.id}`} replace />;
   }
@@ -207,8 +212,13 @@ function NoWorkspacePage() {
 }
 
 function NotFoundPage() {
-  const { user, memberships } = useAuth();
-  const fallback = user && memberships[0] ? `/orgs/${memberships[0].organization.id}` : "/login";
+  const { user, memberships, clientMemberships } = useAuth();
+  const fallback =
+    user && memberships[0]
+      ? `/orgs/${memberships[0].organization.id}`
+      : clientMemberships.length > 0
+        ? "/portal"
+        : "/";
 
   return (
     <div className="grid min-h-screen place-items-center bg-cream-50 px-6">

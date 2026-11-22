@@ -123,7 +123,7 @@ export function PortalShell() {
   );
 
   return (
-    <div className="min-h-screen bg-cream-50">
+    <div className="flex min-h-screen flex-col bg-cream-50">
       <a
         href="#portal-content"
         className="sr-only z-50 rounded-lg bg-ink-900 px-4 py-2 text-sm font-medium text-cream-50 focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
@@ -146,7 +146,7 @@ export function PortalShell() {
         </div>
       ) : null}
 
-      <div className="lg:pl-64">
+      <div className="flex flex-1 flex-col lg:pl-64">
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-4 border-b border-cream-200 bg-cream-50/90 px-4 backdrop-blur sm:px-6 lg:hidden">
           <button
             type="button"
@@ -162,13 +162,13 @@ export function PortalShell() {
 
         <main
           id="portal-content"
-          className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10"
+          className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8 lg:py-10"
         >
           <Outlet />
         </main>
 
-        <footer className="mx-auto flex w-full max-w-6xl flex-col gap-2 border-t border-cream-200 px-4 py-6 text-[11px] text-ink-400 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <span>StudioOS · Client review portal</span>
+        <footer className="mx-auto flex w-full max-w-7xl flex-col gap-2 border-t border-cream-200 px-4 py-6 text-[11px] text-ink-400 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+          <span>© {new Date().getFullYear()} StudioOS</span>
           <span>Private to your client account</span>
         </footer>
       </div>

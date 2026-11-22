@@ -9,7 +9,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
       <main className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-8">
         <div className="w-full max-w-md animate-rise">
           <div className="mb-9 lg:hidden">
-            <Logo to="/login" />
+            <Logo to="/" />
           </div>
           {children}
         </div>

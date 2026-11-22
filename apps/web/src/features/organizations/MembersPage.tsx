@@ -313,7 +313,7 @@ export function MembersPage() {
               {lastInvite.inviteUrl ? (
                 <>
                   <p className="mt-1 text-xs text-ink-500">
-                    Development link generated locally. Email delivery arrives in Milestone 5.
+                    Share this single-use link with the invitee. It expires automatically.
                   </p>
                   <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                     <Input
@@ -334,8 +334,7 @@ export function MembersPage() {
                 </>
               ) : (
                 <p className="mt-1 text-xs leading-relaxed text-ink-500">
-                  Invitation created. Email delivery is not enabled yet, so keep this record for the
-                  next milestone.
+                  Invitation created and email queued for delivery.
                 </p>
               )}
             </div>

@@ -4,7 +4,7 @@
 
 - **Web:** nginx-served React SPA; proxies `/api/` to the API service.
 - **API:** Express modular monolith; runs migrations separately and serves `/health`, `/health/ready`,
-  `/api/v1`, and `/api/docs`.
+  and `/api/v1`. Swagger UI/OpenAPI routes exist only when `API_DOCS_ENABLED=true`.
 - **Worker:** separate process from the same API image; polls the PostgreSQL outbox, sends email
   through Redis/BullMQ, and schedules deadline reminders.
 - **PostgreSQL:** source of truth; composite tenant constraints and workflow checks.
@@ -197,6 +197,9 @@ Target RTO: 4 hours.
 6. Add a regression test before closing the incident.
 
 ## API documentation
+
+API docs are hidden unless `API_DOCS_ENABLED=true`. Keep them disabled in production unless you
+intend to expose the contract; enable temporarily for an authorized review and disable afterward.
 
 - Swagger UI: `/api/docs`
 - OpenAPI JSON: `/api/v1/openapi.json`

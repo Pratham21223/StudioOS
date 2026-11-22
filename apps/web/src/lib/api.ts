@@ -1,7 +1,4 @@
-const BASE_URL = (import.meta.env.VITE_API_URL ?? "http://localhost:4000/api/v1").replace(
-  /\/$/,
-  "",
-);
+const BASE_URL = (import.meta.env.VITE_API_URL ?? "/api/v1").replace(/\/$/, "");
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 

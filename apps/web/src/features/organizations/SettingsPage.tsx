@@ -126,7 +126,7 @@ export function SettingsPage() {
             <FormField
               label="Workspace slug"
               htmlFor="organization-slug"
-              hint="The slug is permanent for this milestone. It may become editable in a future release."
+              hint="The workspace slug is permanent."
             >
               <Input
                 id="organization-slug"

@@ -47,6 +47,8 @@ export default defineConfig({
       QUEUE_PREFIX: "studioos-test",
       EMAIL_JOB_ATTEMPTS: "2",
       EMAIL_JOB_BACKOFF_MS: "50",
+      API_DOCS_ENABLED: "true",
+      DEV_LINKS_ENABLED: "true",
       LOG_LEVEL: "silent",
     },
   },

@@ -91,7 +91,7 @@ export const forgotPassword: RequestHandler = async (req, res) => {
   const result = await authService.requestPasswordReset(req.body as ForgotPasswordInput);
 
   const resetUrl =
-    result && !env.isProduction
+    result && env.DEV_LINKS_ENABLED && !env.isProduction
       ? `${env.PASSWORD_RESET_BASE_URL}?token=${encodeURIComponent(result.token)}`
       : undefined;
 

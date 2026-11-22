@@ -28,6 +28,7 @@ This repository currently implements **Milestone 0 (foundation)** through **Mile
 | Invitation/review/assignment email outbox and BullMQ worker | Complete (M5) |
 | In-app notifications, deadline reminders, role-aware dashboard | Complete (M5) |
 | OpenAPI contract, Swagger UI, automated browser smoke suite | Complete (M6) |
+| Public marketing landing page and auth entry points | Complete (M6) |
 | Production images, compose stack, release workflow, backups, runbook | Complete (M6) |
 
 The backend tests enforce tenant isolation, client and project boundaries, workflow validity, task
@@ -264,7 +265,7 @@ All routes are under `/api/v1`. Cookie-authenticated unsafe requests require a m
 | POST | `/auth/login` | Rotates the session; generic invalid-credentials response |
 | POST | `/auth/logout` | Deletes the current session and clears cookies |
 | GET | `/auth/me` | Current user, internal memberships, and client portal memberships |
-| POST | `/auth/password/forgot` | Always returns success semantics; dev response includes `resetUrl` |
+| POST | `/auth/password/forgot` | Always returns success semantics; includes `resetUrl` only when `DEV_LINKS_ENABLED=true` |
 | POST | `/auth/password/reset` | Single-use token; revokes all sessions on success |
 
 ### Organizations and memberships
@@ -619,7 +620,7 @@ Every response includes an `X-Request-Id` header. Request IDs appear in structur
   invitation to an unrelated existing account.
 - Reissuing a pending invitation rotates the token (the old link stops working).
 - Invitation and password-reset emails are encrypted in the transactional outbox and delivered by
-  the worker. Development responses still include the raw link for manual testing.
+  the worker. Raw links are returned only when `DEV_LINKS_ENABLED=true` in non-production.
 
 ### Application hardening
 
@@ -629,6 +630,10 @@ Every response includes an `X-Request-Id` header. Request IDs appear in structur
 - Prisma parameterizes database queries.
 - Error responses never expose stack traces or internal details.
 - Structured logs redact cookies, authorization headers, tokens, and hashes.
+- OpenAPI/Swagger routes are hidden unless `API_DOCS_ENABLED=true`.
+- Invite/reset links are omitted from API responses unless `DEV_LINKS_ENABLED=true` outside
+  production.
+- Product-facing milestone and roadmap metadata are not shown in the workspace UI.
 
 ### Known limitations
 
@@ -891,7 +896,7 @@ See `.env.example` for the full list. Highlights:
 | `SESSION_COOKIE_NAME` / `CSRF_COOKIE_NAME` | Cookie names |
 | `WEB_ORIGIN` | Exact CORS origin for the SPA |
 | `TRUST_PROXY` | Set `true` only behind a trusted reverse proxy |
-| `INVITATION_BASE_URL` / `PASSWORD_RESET_BASE_URL` | Frontend links in dev responses |
+| `INVITATION_BASE_URL` / `PASSWORD_RESET_BASE_URL` | Frontend links used in emails and explicit dev responses |
 | `REDIS_URL` | BullMQ queue connection |
 | `QUEUE_PREFIX` | Queue namespace (default `studioos`) |
 | `S3_REGION` / `S3_BUCKET` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | Object storage credentials |
@@ -903,6 +908,8 @@ See `.env.example` for the full list. Highlights:
 | `EMAIL_API_KEY` / `EMAIL_FROM` | Resend credentials and sender |
 | `EMAIL_JOB_ATTEMPTS` / `EMAIL_JOB_BACKOFF_MS` | Worker retry policy |
 | `MONITORING_WEBHOOK_URL` | Optional sanitized error-forwarding hook |
+| `API_DOCS_ENABLED` | Expose `/api/docs` and the OpenAPI JSON (default off) |
+| `DEV_LINKS_ENABLED` | Return invite/reset links for local development only |
 | `SEED_PASSWORD` | Development seed only; never set in production |
 
 Required values are validated at startup. The application fails fast with a readable error if
@@ -912,8 +919,10 @@ configuration is missing or malformed.
 
 ## Documentation and operations
 
-- **API docs UI:** `/api/docs`
-- **OpenAPI JSON:** `/api/v1/openapi.json`
+API docs are disabled unless `API_DOCS_ENABLED=true`; the production example keeps them off.
+
+- **API docs UI:** `/api/docs` (when enabled)
+- **OpenAPI JSON:** `/api/v1/openapi.json` (when enabled)
 - **Security review:** [`docs/security-review.md`](docs/security-review.md)
 - **Production runbook:** [`docs/production-runbook.md`](docs/production-runbook.md)
 - **Performance smoke:** [`docs/performance.md`](docs/performance.md)

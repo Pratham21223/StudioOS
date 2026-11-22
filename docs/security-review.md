@@ -33,6 +33,8 @@ deployment configuration.
 | Input | Zod bodies/params/query; Prisma parameterization; 1 MB JSON limit | Suite |
 | Headers/CORS | Helmet, narrow origin allowlist, secure web headers in nginx | Health tests |
 | Secrets | `.env` ignored; production example contains placeholders only | Repository review |
+| Dev-only links | Invite/reset URLs hidden unless `DEV_LINKS_ENABLED=true` and non-production | Config review |
+| API docs | Swagger/OpenAPI routes disabled unless `API_DOCS_ENABLED=true` | App bootstrap |
 | Audit | Security-relevant writes audited in the same transaction | Audit tests |
 | Browser E2E | Playwright smoke suite for internal workspace, client portal, mobile overflow | `npm run test:e2e` |
 
@@ -75,5 +77,6 @@ remains after the automated suite and the M1–M5 headless review flows.
 - [ ] `MONITORING_WEBHOOK_URL` points to an authenticated collector.
 - [ ] Backups encrypted off-host; restore tested into a scratch database.
 - [ ] `docker compose -f docker-compose.prod.yml` migration job succeeds before API/worker.
+- [ ] `DEV_LINKS_ENABLED=false` and `API_DOCS_ENABLED=false` unless explicitly intended.
 - [ ] Health checks green; failed BullMQ jobs and `outbox_events.status = 'FAILED'` alerted.
 - [ ] Production-like load test recorded in `docs/performance.md`.

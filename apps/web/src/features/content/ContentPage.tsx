@@ -31,7 +31,7 @@ import type {
   Project,
   ProjectMember,
 } from "../../lib/types";
-import { formatDate } from "../../lib/utils";
+import { cn, formatDate } from "../../lib/utils";
 import { useActiveMembership } from "../organizations/useActiveMembership";
 
 type ContentListResponse = { content: ContentItem[] };
@@ -154,10 +154,9 @@ export function ContentPage() {
     return Array.from(people.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [content]);
 
-  const filtered = useMemo(() => {
+  const baseFiltered = useMemo(() => {
     const query = search.trim().toLowerCase();
     return content.filter((item) => {
-      if (statusFilter !== "ALL" && item.status !== statusFilter) return false;
       if (typeFilter !== "ALL" && item.type !== typeFilter) return false;
       if (projectFilter && item.project.id !== projectFilter) return false;
       if (assigneeFilter && item.assignee?.id !== assigneeFilter) return false;
@@ -168,7 +167,23 @@ export function ContentPage() {
         item.project.name.toLowerCase().includes(query)
       );
     });
-  }, [content, search, statusFilter, typeFilter, projectFilter, assigneeFilter]);
+  }, [content, search, typeFilter, projectFilter, assigneeFilter]);
+
+  const filtered = useMemo(
+    () =>
+      statusFilter === "ALL"
+        ? baseFiltered
+        : baseFiltered.filter((item) => item.status === statusFilter),
+    [baseFiltered, statusFilter],
+  );
+
+  const statusCounts = useMemo(() => {
+    const counts = new Map<ContentStatus, number>();
+    for (const item of baseFiltered) {
+      counts.set(item.status, (counts.get(item.status) ?? 0) + 1);
+    }
+    return counts;
+  }, [baseFiltered]);
 
   const visibleStatuses =
     statusFilter === "ALL" ? CONTENT_STATUSES : [statusFilter as ContentStatus];
@@ -453,6 +468,42 @@ export function ContentPage() {
         </div>
       </Card>
 
+      {!loading && content.length > 0 ? (
+        <div className="-mx-4 overflow-x-auto px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0">
+          <div className="flex min-w-max items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setStatusFilter("ALL")}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-[11px] font-semibold transition",
+                statusFilter === "ALL"
+                  ? "border-ink-900 bg-ink-900 text-cream-50"
+                  : "border-cream-300 bg-white text-ink-600 hover:border-cream-300 hover:bg-cream-100",
+              )}
+            >
+              All stages
+              <span className="ml-1.5 opacity-70">{baseFiltered.length}</span>
+            </button>
+            {CONTENT_STATUSES.map((stage) => (
+              <button
+                key={stage}
+                type="button"
+                onClick={() => setStatusFilter(stage)}
+                className={cn(
+                  "rounded-full border px-3 py-1.5 text-[11px] font-semibold transition",
+                  statusFilter === stage
+                    ? "border-accent-500 bg-accent-500 text-white"
+                    : "border-cream-300 bg-white text-ink-600 hover:border-cream-300 hover:bg-cream-100",
+                )}
+              >
+                {CONTENT_STATUS_LABELS[stage]}
+                <span className="ml-1.5 opacity-70">{statusCounts.get(stage) ?? 0}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       {loading ? (
         <div className="flex min-h-[30vh] items-center justify-center gap-2 text-sm text-ink-500">
           <Spinner /> Loading content…
@@ -504,16 +555,16 @@ export function ContentPage() {
         </Card>
       ) : (
         <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0">
-          <div className="flex min-w-max gap-3">
+          <div className="flex min-w-max snap-x snap-mandatory gap-3">
             {visibleStatuses.map((status) => {
               const items = filtered.filter((item) => item.status === status);
               return (
                 <section
                   key={status}
-                  className="w-[17rem] shrink-0 rounded-xl border border-cream-200 bg-cream-100/50"
+                  className="min-h-[24rem] w-[18rem] shrink-0 snap-start rounded-xl border border-cream-200 bg-cream-100/50"
                   aria-label={CONTENT_STATUS_LABELS[status]}
                 >
-                  <header className="flex items-center justify-between gap-2 border-b border-cream-200 px-3.5 py-3">
+                  <header className="flex items-center justify-between gap-2 border-b border-cream-200 px-4 py-3.5">
                     <div className="flex min-w-0 items-center gap-2">
                       <span className="truncate text-xs font-semibold uppercase tracking-[0.1em] text-ink-600">
                         {CONTENT_STATUS_LABELS[status]}
@@ -524,9 +575,9 @@ export function ContentPage() {
                     </span>
                   </header>
 
-                  <div className="space-y-2.5 p-2.5">
+                  <div className="space-y-3 p-3">
                     {items.length === 0 ? (
-                      <p className="rounded-lg border border-dashed border-cream-300 px-3 py-6 text-center text-[11px] text-ink-400">
+                      <p className="rounded-lg border border-dashed border-cream-300 px-3 py-10 text-center text-[11px] text-ink-400">
                         Nothing here
                       </p>
                     ) : (
@@ -536,10 +587,10 @@ export function ContentPage() {
                           <Link
                             key={item.id}
                             to={`/orgs/${membership.organization.id}/content/${item.id}`}
-                            className="group block rounded-lg border border-cream-200 bg-white p-3.5 shadow-sm transition hover:-translate-y-0.5 hover:border-cream-300 hover:shadow-md"
+                            className="group block rounded-xl border border-cream-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-cream-300 hover:shadow-md"
                           >
                             <div className="flex items-start justify-between gap-2">
-                              <p className="line-clamp-2 text-sm font-medium leading-snug text-ink-900">
+                              <p className="line-clamp-2 text-[15px] font-medium leading-snug text-ink-900">
                                 {item.title}
                               </p>
                             </div>

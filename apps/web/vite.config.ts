@@ -28,7 +28,7 @@ export default defineConfig(() => {
   // loadEnv/envDir here: the root .env also contains NODE_ENV=development for
   // the API, which would make production bundles include development paths.
   const fileEnv = readRootWebEnv();
-  const apiUrl = process.env.VITE_API_URL ?? fileEnv.VITE_API_URL ?? "http://localhost:4000/api/v1";
+  const apiUrl = process.env.VITE_API_URL ?? fileEnv.VITE_API_URL ?? "/api/v1";
 
   return {
     plugins: [react(), tailwindcss()],

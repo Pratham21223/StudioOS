@@ -82,7 +82,7 @@ export function OverviewPage() {
         <div className="relative z-10 flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl space-y-4">
             <Badge tone="accent" className="border-accent-400/20 bg-accent-500/10 text-accent-400">
-              Milestone 5 · Assets, reviews & insight
+              Production control center
             </Badge>
             <div className="space-y-2">
               <h1 className="font-display text-4xl leading-[1.05] tracking-tight sm:text-5xl">

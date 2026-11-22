@@ -23,7 +23,9 @@ import type {
 } from "./invitation.validation.js";
 
 function inviteUrlForToken(token: string): string | undefined {
-  return env.isProduction ? undefined : `${env.INVITATION_BASE_URL}/${encodeURIComponent(token)}`;
+  return env.DEV_LINKS_ENABLED && !env.isProduction
+    ? `${env.INVITATION_BASE_URL}/${encodeURIComponent(token)}`
+    : undefined;
 }
 
 export const listOrganizationInvitations: RequestHandler = async (req, res) => {

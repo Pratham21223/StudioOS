@@ -188,10 +188,9 @@ export function TasksPage() {
     return Array.from(people.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [projectMembers, user, editingTask]);
 
-  const filtered = useMemo(() => {
+  const baseFiltered = useMemo(() => {
     const query = search.trim().toLowerCase();
     return tasks.filter((task) => {
-      if (statusFilter !== "ALL" && task.status !== statusFilter) return false;
       if (priorityFilter !== "ALL" && task.priority !== priorityFilter) return false;
       if (projectFilter && task.project.id !== projectFilter) return false;
       if (assigneeFilter && task.assignee?.id !== assigneeFilter) return false;
@@ -204,7 +203,23 @@ export function TasksPage() {
         (task.contentItem?.title ?? "").toLowerCase().includes(query)
       );
     });
-  }, [tasks, search, statusFilter, priorityFilter, projectFilter, assigneeFilter, overdueOnly]);
+  }, [tasks, search, priorityFilter, projectFilter, assigneeFilter, overdueOnly]);
+
+  const filtered = useMemo(
+    () =>
+      statusFilter === "ALL"
+        ? baseFiltered
+        : baseFiltered.filter((task) => task.status === statusFilter),
+    [baseFiltered, statusFilter],
+  );
+
+  const statusCounts = useMemo(() => {
+    const counts = new Map<TaskStatus, number>();
+    for (const task of baseFiltered) {
+      counts.set(task.status, (counts.get(task.status) ?? 0) + 1);
+    }
+    return counts;
+  }, [baseFiltered]);
 
   const overdueCount = tasks.filter(isTaskOverdue).length;
   const inProgressCount = tasks.filter((task) => task.status === "IN_PROGRESS").length;
@@ -621,6 +636,42 @@ export function TasksPage() {
         </div>
       </Card>
 
+      {!loading && tasks.length > 0 ? (
+        <div className="-mx-4 overflow-x-auto px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0">
+          <div className="flex min-w-max items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setStatusFilter("ALL")}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-[11px] font-semibold transition",
+                statusFilter === "ALL"
+                  ? "border-ink-900 bg-ink-900 text-cream-50"
+                  : "border-cream-300 bg-white text-ink-600 hover:bg-cream-100",
+              )}
+            >
+              All statuses
+              <span className="ml-1.5 opacity-70">{baseFiltered.length}</span>
+            </button>
+            {TASK_STATUSES.map((status) => (
+              <button
+                key={status}
+                type="button"
+                onClick={() => setStatusFilter(status)}
+                className={cn(
+                  "rounded-full border px-3 py-1.5 text-[11px] font-semibold transition",
+                  statusFilter === status
+                    ? "border-accent-500 bg-accent-500 text-white"
+                    : "border-cream-300 bg-white text-ink-600 hover:bg-cream-100",
+                )}
+              >
+                {TASK_STATUS_LABELS[status]}
+                <span className="ml-1.5 opacity-70">{statusCounts.get(status) ?? 0}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       {loading ? (
         <div className="flex min-h-[30vh] items-center justify-center gap-2 text-sm text-ink-500">
           <Spinner /> Loading tasks…
@@ -669,16 +720,16 @@ export function TasksPage() {
         </Card>
       ) : (
         <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0">
-          <div className="flex min-w-max gap-3">
+          <div className="flex min-w-max snap-x snap-mandatory gap-3">
             {visibleStatuses.map((status) => {
               const items = filtered.filter((task) => task.status === status);
               return (
                 <section
                   key={status}
-                  className="w-[19rem] shrink-0 rounded-xl border border-cream-200 bg-cream-100/50"
+                  className="min-h-[26rem] w-[20rem] shrink-0 snap-start rounded-xl border border-cream-200 bg-cream-100/50"
                   aria-label={TASK_STATUS_LABELS[status]}
                 >
-                  <header className="flex items-center justify-between gap-2 border-b border-cream-200 px-3.5 py-3">
+                  <header className="flex items-center justify-between gap-2 border-b border-cream-200 px-4 py-3.5">
                     <span className="text-xs font-semibold uppercase tracking-[0.1em] text-ink-600">
                       {TASK_STATUS_LABELS[status]}
                     </span>
@@ -686,9 +737,9 @@ export function TasksPage() {
                       {items.length}
                     </span>
                   </header>
-                  <div className="space-y-2.5 p-2.5">
+                  <div className="space-y-3 p-3">
                     {items.length === 0 ? (
-                      <p className="rounded-lg border border-dashed border-cream-300 px-3 py-6 text-center text-[11px] text-ink-400">
+                      <p className="rounded-lg border border-dashed border-cream-300 px-3 py-10 text-center text-[11px] text-ink-400">
                         Nothing here
                       </p>
                     ) : (
@@ -700,10 +751,10 @@ export function TasksPage() {
                         return (
                           <article
                             key={task.id}
-                            className="rounded-lg border border-cream-200 bg-white p-3.5 shadow-sm"
+                            className="rounded-xl border border-cream-200 bg-white p-4 shadow-sm"
                           >
                             <div className="flex items-start justify-between gap-2">
-                              <p className="text-sm font-medium leading-snug text-ink-900">
+                              <p className="text-[15px] font-medium leading-snug text-ink-900">
                                 {task.title}
                               </p>
                               <TaskPriorityBadge priority={task.priority} />

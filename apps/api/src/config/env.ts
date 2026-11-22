@@ -73,6 +73,14 @@ const envSchema = z.object({
   EMAIL_JOB_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(4),
   EMAIL_JOB_BACKOFF_MS: z.coerce.number().int().min(10).max(600_000).default(5_000),
   MONITORING_WEBHOOK_URL: z.string().url().optional(),
+  API_DOCS_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  DEV_LINKS_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
 
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   SEED_PASSWORD: z.string().optional(),

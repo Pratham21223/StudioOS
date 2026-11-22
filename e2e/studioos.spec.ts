@@ -12,6 +12,18 @@ async function login(page: Page, email: string) {
   await expect(page).not.toHaveURL(/\/login/);
 }
 
+test("public landing page presents the product without internal roadmap details", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Every deliverable");
+  await expect(page.getByRole("link", { name: /start your workspace/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^start free$/i }).first()).toBeVisible();
+  const content = await page.content();
+  expect(content).not.toContain("Milestone");
+  expect(content).not.toContain("Product roadmap");
+});
+
 test("internal workspace smoke: dashboard, content, assets, notifications", async ({ page }) => {
   await login(page, ADMIN_EMAIL);
   await expect(page).toHaveURL(/\/orgs\//);
@@ -32,6 +44,24 @@ test("internal workspace smoke: dashboard, content, assets, notifications", asyn
 
   await nav.getByRole("link", { name: /Notifications/ }).click();
   await expect(page.getByRole("heading", { name: "Notifications" })).toBeVisible();
+});
+
+test("app footer stays at the viewport bottom on short pages", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await login(page, ADMIN_EMAIL);
+  const organizationPath = new URL(page.url()).pathname;
+  await page.goto(`${organizationPath}/settings`);
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  const metrics = await page.evaluate(() => {
+    const footer = document.querySelector("footer");
+    return {
+      innerHeight: window.innerHeight,
+      scrollHeight: document.documentElement.scrollHeight,
+      footerBottom: footer?.getBoundingClientRect().bottom ?? 0,
+    };
+  });
+  expect(metrics.scrollHeight).toBeLessThanOrEqual(metrics.innerHeight + 1);
+  expect(Math.abs(metrics.footerBottom - metrics.innerHeight)).toBeLessThan(3);
 });
 
 test("client portal smoke: shared projects and deliverables", async ({ page }) => {

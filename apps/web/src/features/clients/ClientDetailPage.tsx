@@ -547,7 +547,7 @@ export function ClientDetailPage() {
                   </div>
                 ) : (
                   <p className="mt-1 text-[11px] text-ink-500">
-                    Invite created. Email delivery arrives in a later milestone.
+                    Invitation created and email queued for delivery.
                   </p>
                 )}
               </div>

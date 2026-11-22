@@ -39,17 +39,18 @@ export function createApp(): express.Express {
     res.status(200).json({
       service: "studioos-api",
       api: "/api/v1",
-      docs: "/api/docs",
+      ...(env.API_DOCS_ENABLED ? { docs: "/api/docs" } : {}),
       health: "/health",
     });
   });
 
-  app.get("/api/v1/openapi.json", (_req, res) => {
-    res.status(200).json(openApiSpec);
-  });
+  if (env.API_DOCS_ENABLED) {
+    app.get("/api/v1/openapi.json", (_req, res) => {
+      res.status(200).json(openApiSpec);
+    });
 
-  app.get("/api/docs", (_req, res) => {
-    res.type("html").send(`<!doctype html>
+    app.get("/api/docs", (_req, res) => {
+      res.type("html").send(`<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -64,10 +65,10 @@ export function createApp(): express.Express {
     <script src="/api/docs/init.js"></script>
   </body>
 </html>`);
-  });
+    });
 
-  app.get("/api/docs/init.js", (_req, res) => {
-    res.type("application/javascript").send(`window.onload = function () {
+    app.get("/api/docs/init.js", (_req, res) => {
+      res.type("application/javascript").send(`window.onload = function () {
   window.ui = SwaggerUIBundle({
     url: "/api/v1/openapi.json",
     dom_id: "#swagger-ui",
@@ -76,9 +77,10 @@ export function createApp(): express.Express {
     deepLinking: true,
   });
 };`);
-  });
+    });
 
-  app.use("/api/docs", swaggerUi.serve);
+    app.use("/api/docs", swaggerUi.serve);
+  }
 
   app.use("/health", healthRouter);
   app.use("/api/v1", apiRouter);

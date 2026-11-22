@@ -23,12 +23,6 @@ import { cn, roleLabel } from "../lib/utils";
 import { api } from "../lib/api";
 import { useActiveMembership } from "../features/organizations/useActiveMembership";
 
-const roadmap = [
-  { label: "Hardening & E2E", milestone: "M6" },
-  { label: "OpenAPI documentation", milestone: "M6" },
-  { label: "Production deployment", milestone: "M6" },
-];
-
 export function AppShell() {
   const { user, memberships, logout } = useAuth();
   const membership = useActiveMembership();
@@ -250,23 +244,6 @@ export function AppShell() {
           ))}
       </nav>
 
-      <div className="mx-4 mt-7 rounded-xl border border-white/[0.07] bg-white/[0.03] p-3.5">
-        <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-400">
-          <FolderKanban className="size-3.5" aria-hidden="true" />
-          Product roadmap
-        </div>
-        <ul className="mt-3 space-y-2.5">
-          {roadmap.map((item) => (
-            <li key={item.label} className="flex items-center justify-between gap-2 text-xs">
-              <span className="text-ink-300">{item.label}</span>
-              <span className="rounded border border-white/10 px-1.5 py-0.5 text-[10px] font-medium text-ink-400">
-                {item.milestone}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
       <div className="mt-auto border-t border-white/[0.07] p-4">
         <div className="flex items-center gap-3">
           <Avatar name={user.name} className="border-white/10 bg-white/10 text-cream-100" />
@@ -289,7 +266,7 @@ export function AppShell() {
   );
 
   return (
-    <div className="min-h-screen bg-cream-50">
+    <div className="flex min-h-screen flex-col bg-cream-50">
       <a
         href="#main-content"
         className="sr-only z-50 rounded-lg bg-ink-900 px-4 py-2 text-sm font-medium text-cream-50 focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
@@ -312,7 +289,7 @@ export function AppShell() {
         </div>
       ) : null}
 
-      <div className="lg:pl-64">
+      <div className="flex flex-1 flex-col lg:pl-64">
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-4 border-b border-cream-200 bg-cream-50/90 px-4 backdrop-blur sm:px-6 lg:hidden">
           <button
             type="button"
@@ -335,14 +312,14 @@ export function AppShell() {
 
         <main
           id="main-content"
-          className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10"
+          className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8 lg:py-10"
         >
           <Outlet />
         </main>
 
-        <footer className="mx-auto flex w-full max-w-6xl flex-col gap-2 border-t border-cream-200 px-4 py-6 text-[11px] text-ink-400 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <span>StudioOS · Milestone 5 · Assets, client approval, notifications & dashboards</span>
-          <span>Session-based auth · Server-enforced permissions</span>
+        <footer className="mx-auto flex w-full max-w-7xl flex-col gap-2 border-t border-cream-200 px-4 py-6 text-[11px] text-ink-400 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+          <span>© {new Date().getFullYear()} StudioOS</span>
+          <span>Built for content production teams</span>
         </footer>
       </div>
     </div>

@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /orgs/
+Disallow: /portal/
+Disallow: /api/
+Disallow: /no-workspace
+Disallow: /invitations/
+Disallow: /password/

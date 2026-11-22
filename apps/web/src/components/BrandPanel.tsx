@@ -4,7 +4,7 @@ import { Logo } from "./Logo";
 const highlights = [
   "One source of truth for every deliverable",
   "Client review without email chaos",
-  "Roles and tenant boundaries enforced server-side",
+  "Private workspaces with role-aware access",
 ];
 
 export function BrandPanel() {
@@ -12,7 +12,7 @@ export function BrandPanel() {
     <aside className="studio-grid relative hidden overflow-hidden bg-ink-900 px-10 py-10 text-cream-50 lg:flex lg:flex-col xl:px-14">
       <div className="studio-glow pointer-events-none absolute inset-0" aria-hidden="true" />
       <div className="relative z-10 flex h-full flex-col">
-        <Logo tone="light" to="/login" />
+        <Logo tone="light" to="/" />
 
         <div className="mt-auto max-w-lg space-y-8 pb-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-cream-200">
@@ -44,7 +44,7 @@ export function BrandPanel() {
 
         <div className="mt-auto flex items-center gap-2 border-t border-white/10 pt-5 text-[11px] text-ink-400">
           <ShieldCheck className="size-4 text-moss-100/70" aria-hidden="true" />
-          Private by default · Session-based auth · Tenant-isolated data
+          Private by default · Client-isolated data
         </div>
       </div>
     </aside>

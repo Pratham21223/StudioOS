@@ -61,11 +61,11 @@ export function ForgotPasswordPage() {
             {result.resetUrl ? (
               <div className="rounded-xl border border-dashed border-accent-500/30 bg-accent-500/[0.04] p-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent-600">
-                  Development helper
+                  Password reset link
                 </p>
                 <p className="mt-1 text-sm leading-relaxed text-ink-600">
-                  Email delivery is not enabled in this milestone. Use this local link to finish the
-                  reset flow.
+                  Email delivery is queued. If you need immediate access in this environment, use
+                  the link below to finish the reset flow.
                 </p>
                 <a
                   href={result.resetUrl}
