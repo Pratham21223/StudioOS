@@ -185,7 +185,8 @@ Target RTO: 4 hours.
 
 ## Known operational limitations
 
-- No load test has been run yet; run a k6/ART profile before launch and record p95 latency.
+- The recorded load smoke is a local single-host measurement. Repeat it on production-like
+  infrastructure and record results in `docs/performance.md`.
 - In-memory rate limiting is single-instance only.
 - Session and upload-intent cleanup are lazy; schedule maintenance SQL or a cleanup job.
 - The development S3 mock is not durable and must not be deployed.

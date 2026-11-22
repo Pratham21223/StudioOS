@@ -645,7 +645,8 @@ Every response includes an `X-Request-Id` header. Request IDs appear in structur
 - Expired session rows are rejected on use and removed lazily; a scheduled cleanup job should be
   added to the worker.
 - Browser smoke coverage is automated for core internal/portal journeys; deeper destructive-flow
-  E2E and representative load/performance tests remain a launch activity.
+  E2E and production-like load tests remain launch activities. A local performance smoke is
+  recorded in `docs/performance.md`.
 - Task checklists (P1) and task activity timelines beyond audit events are deferred.
 - Client, project, content, asset, and task lists are not paginated yet; this is safe for the initial
   team size but should be addressed before large tenants onboard.
@@ -833,6 +834,14 @@ PLAYWRIGHT_CHANNEL=chrome npm run test:e2e
 They cover dashboard/navigation, content/assets/notifications, the client portal, and mobile
 overflow. CI installs Chromium automatically.
 
+Performance smoke against a running API:
+
+```bash
+LOAD_CONNECTIONS=100 LOAD_DURATION_SECONDS=10 npm run load:smoke
+```
+
+See [`docs/performance.md`](docs/performance.md) for the latest measured result and limitations.
+
 ### CI
 
 `.github/workflows/ci.yml` runs on pull requests and `main`:
@@ -907,6 +916,7 @@ configuration is missing or malformed.
 - **OpenAPI JSON:** `/api/v1/openapi.json`
 - **Security review:** [`docs/security-review.md`](docs/security-review.md)
 - **Production runbook:** [`docs/production-runbook.md`](docs/production-runbook.md)
+- **Performance smoke:** [`docs/performance.md`](docs/performance.md)
 - **Backup:** `infra/scripts/backup-postgres.sh`
 - **Restore:** `infra/scripts/restore-postgres.sh`
 - **Production images:** `infra/docker/api.Dockerfile`, `infra/docker/web.Dockerfile`

@@ -54,7 +54,6 @@ deployment configuration.
 | Risk | Severity | Mitigation / next step |
 |---|---|---|
 | Rate limiting uses an in-memory store | Medium | Move to Redis before horizontally scaling API instances |
-| No measured load/performance profile | Medium | Run representative k6/ART load tests before launch; targets are documented, not claimed |
 | Lists are not paginated | Low | Add cursor pagination before large tenant onboarding |
 | Expired sessions cleaned lazily | Low | Add a daily worker cleanup job |
 | S3 bucket policy/CORS is deployment-specific | Medium | Apply least privilege and restrict CORS to the production origin |
@@ -77,3 +76,4 @@ remains after the automated suite and the M1–M5 headless review flows.
 - [ ] Backups encrypted off-host; restore tested into a scratch database.
 - [ ] `docker compose -f docker-compose.prod.yml` migration job succeeds before API/worker.
 - [ ] Health checks green; failed BullMQ jobs and `outbox_events.status = 'FAILED'` alerted.
+- [ ] Production-like load test recorded in `docs/performance.md`.
