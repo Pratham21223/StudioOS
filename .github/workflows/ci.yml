@@ -13,7 +13,7 @@ jobs:
   verify:
     name: Lint, typecheck, test, build
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     services:
       postgres:
@@ -30,12 +30,41 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+      s3:
+        image: adobe/s3mock:latest
+        env:
+          COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: studioos-test
+        ports:
+          - 9090:9090
+
     env:
       NODE_ENV: test
       DATABASE_URL: postgresql://studioos:studioos@localhost:5432/studio_os_test
       TEST_DATABASE_URL: postgresql://studioos:studioos@localhost:5432/studio_os_test
       SESSION_SECRET: ci-only-session-secret-at-least-32-characters-long
       WEB_ORIGIN: http://localhost:5174
+      S3_REGION: us-east-1
+      S3_BUCKET: studioos-test
+      S3_ACCESS_KEY_ID: test
+      S3_SECRET_ACCESS_KEY: test
+      S3_ENDPOINT: http://localhost:9090
+      S3_AUTO_CREATE_BUCKET: "true"
+      REDIS_URL: redis://localhost:6380
+      EMAIL_PROVIDER: console
+      QUEUE_PREFIX: studioos-ci
+      EMAIL_JOB_ATTEMPTS: "2"
+      EMAIL_JOB_BACKOFF_MS: "50"
+      SEED_PASSWORD: StudioOS-dev-2026!
       LOG_LEVEL: silent
 
     steps:
@@ -60,6 +89,23 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Seed browser-test data
+        run: npm run db:seed
+
+      - name: Run browser smoke tests
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
 
       - name: Build
         run: npm run build

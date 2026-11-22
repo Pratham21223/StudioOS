@@ -1,0 +1,13 @@
+.git
+.github
+node_modules
+**/node_modules
+**/dist
+coverage
+.vitest
+.env
+.env.*
+!.env.example
+!.env.production.example
+*.log
+/tmp

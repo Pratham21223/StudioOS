@@ -24,9 +24,9 @@ export function LoginPage() {
     setFieldErrors({});
 
     try {
-      const organizationId = await login({ email, password });
+      const destination = await login({ email, password });
       const next = safeNextPath(searchParams.get("next"));
-      navigate(next ?? (organizationId ? `/orgs/${organizationId}` : "/no-workspace"), {
+      navigate(next ?? destination ?? "/no-workspace", {
         replace: true,
       });
     } catch (submitError) {

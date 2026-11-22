@@ -17,6 +17,7 @@ import { clientMembershipRepository } from "../clients/client-membership.reposit
 import { membershipRepository } from "../memberships/membership.repository.js";
 import { organizationRepository } from "../organizations/organization.repository.js";
 import { recordAudit } from "../audit/audit.service.js";
+import { queueEmail } from "../notifications/notification.service.js";
 
 const SESSION_TTL_MS = env.SESSION_TTL_HOURS * 60 * 60 * 1000;
 const PASSWORD_RESET_TTL_MS = env.PASSWORD_RESET_TTL_MINUTES * 60 * 1000;
@@ -223,6 +224,12 @@ export async function requestPasswordReset(
       },
       tx,
     );
+
+    await queueEmail(tx, {
+      to: user.email,
+      subject: "Reset your StudioOS password",
+      text: `Hi ${user.name},\n\nReset your StudioOS password: ${env.PASSWORD_RESET_BASE_URL}?token=${encodeURIComponent(token)}\n\nThis link expires in ${env.PASSWORD_RESET_TTL_MINUTES} minutes. If you did not request this, you can ignore this email.`,
+    });
   });
 
   return { token };

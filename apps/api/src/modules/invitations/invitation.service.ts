@@ -8,6 +8,7 @@ import { hashPassword } from "../../shared/password.js";
 import { presentClientBrief, presentOrganization } from "../../shared/presenters.js";
 import type { RequestMeta } from "../../shared/request-meta.js";
 import { recordAudit } from "../audit/audit.service.js";
+import { queueEmail } from "../notifications/notification.service.js";
 import { sessionRepository } from "../auth/session.repository.js";
 import { clientMembershipRepository } from "../clients/client-membership.repository.js";
 import { clientRepository } from "../clients/client.repository.js";
@@ -22,6 +23,10 @@ import type {
 
 const INVITATION_TTL_MS = env.INVITATION_TTL_HOURS * 60 * 60 * 1000;
 const SESSION_TTL_MS = env.SESSION_TTL_HOURS * 60 * 60 * 1000;
+
+function invitationLink(token: string): string {
+  return `${env.INVITATION_BASE_URL}/${encodeURIComponent(token)}`;
+}
 
 type InvitationStatus = "PENDING" | "ACCEPTED" | "REVOKED" | "EXPIRED";
 
@@ -132,6 +137,13 @@ export async function createInvitation(
       metadata: { email: record.email, role: record.role, type: record.type },
     });
 
+    await queueEmail(tx, {
+      organizationId: tenant.organizationId,
+      to: record.email,
+      subject: `You're invited to ${tenant.organization.name} on StudioOS`,
+      text: `${tenant.organization.name} invited you to join their workspace as ${record.role ?? "a member"}.\n\nAccept the invitation: ${invitationLink(token)}\n\nThis link expires in ${env.INVITATION_TTL_HOURS} hours.`,
+    });
+
     return record;
   });
 
@@ -215,6 +227,13 @@ export async function createClientInvitation(
       resourceType: "invitation",
       resourceId: record.id,
       metadata: { clientId, email: record.email, type: record.type },
+    });
+
+    await queueEmail(tx, {
+      organizationId: tenant.organizationId,
+      to: record.email,
+      subject: `${tenant.organization.name} invited you to review ${client.name}`,
+      text: `${tenant.organization.name} invited you to the client portal for ${client.name} on StudioOS.\n\nAccept the invitation: ${invitationLink(token)}\n\nThis link expires in ${env.INVITATION_TTL_HOURS} hours.`,
     });
 
     return record;

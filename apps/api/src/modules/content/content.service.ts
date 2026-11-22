@@ -6,9 +6,11 @@ import {
   isContentTransitionAllowed,
 } from "@studioos/shared";
 import { prisma } from "../../infrastructure/database/prisma.js";
+import { env } from "../../config/env.js";
 import type { TenantContext } from "../../shared/context.js";
 import { AppError } from "../../shared/errors.js";
 import { recordAudit } from "../audit/audit.service.js";
+import { notifyContentAudience, notifyUser } from "../notifications/notification.service.js";
 import {
   assertProjectOpen,
   canViewAllProjects,
@@ -144,6 +146,18 @@ export async function createContent(
       },
     });
 
+    if (assigneeId && assigneeId !== actorId) {
+      await notifyUser(tx, {
+        organizationId: tenant.organizationId,
+        userId: assigneeId,
+        type: "CONTENT_ASSIGNED",
+        title: `Content assigned: ${content.title}`,
+        body: `${content.project.name} · ${content.type.toLowerCase()}`,
+        payload: { contentItemId: content.id, projectId },
+        url: `${env.WEB_ORIGIN}/orgs/${tenant.organizationId}/content/${content.id}`,
+      });
+    }
+
     return presentContent(content);
   });
 }
@@ -192,6 +206,23 @@ export async function updateContent(
         assigneeId: updated.assigneeId,
       },
     });
+
+    if (
+      input.assigneeId !== undefined &&
+      updated.assigneeId &&
+      updated.assigneeId !== existing.assigneeId &&
+      updated.assigneeId !== actorId
+    ) {
+      await notifyUser(tx, {
+        organizationId: tenant.organizationId,
+        userId: updated.assigneeId,
+        type: "CONTENT_ASSIGNED",
+        title: `Content assigned: ${updated.title}`,
+        body: `${updated.project.name} · ${updated.type.toLowerCase()}`,
+        payload: { contentItemId: updated.id, projectId: updated.projectId },
+        url: `${env.WEB_ORIGIN}/orgs/${tenant.organizationId}/content/${updated.id}`,
+      });
+    }
 
     return presentContent(updated);
   });
@@ -298,6 +329,19 @@ export async function transitionContent(
         note: input.note ?? null,
       },
     });
+
+    if (input.toStatus === "CLIENT_APPROVAL") {
+      await notifyContentAudience(tx, {
+        organizationId: tenant.organizationId,
+        contentItemId: contentId,
+        projectId: updated.projectId,
+        type: "CONTENT_SUBMITTED",
+        title: `${updated.title} is ready for client review`,
+        body: "The deliverable is awaiting client approval in the portal.",
+        excludeUserIds: [actorId],
+        includeClientContacts: true,
+      });
+    }
 
     return {
       content: presentContent(updated),

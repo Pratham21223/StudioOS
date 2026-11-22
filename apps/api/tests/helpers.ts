@@ -469,8 +469,67 @@ export function extractResetToken(resetUrl: string): string {
   return token;
 }
 
+export type AssetView = {
+  id: string;
+  originalFilename: string;
+  mimeType: string;
+  sizeBytes: number;
+  project: { id: string; name: string; status: string };
+  contentItem: { id: string; title: string; status: string } | null;
+  uploadedBy: { id: string; name: string; email: string } | null;
+  createdAt: string;
+};
+
+export async function uploadAssetRecord(
+  client: ApiClient,
+  organizationId: string,
+  input: {
+    projectId: string;
+    contentItemId?: string;
+    originalFilename?: string;
+    mimeType?: string;
+    body?: Buffer;
+  },
+): Promise<AssetView> {
+  const body = input.body ?? Buffer.from("StudioOS test asset");
+  const response = await client.post(
+    `/api/v1/organizations/${organizationId}/assets/upload-intents`,
+    {
+      projectId: input.projectId,
+      ...(input.contentItemId ? { contentItemId: input.contentItemId } : {}),
+      originalFilename: input.originalFilename ?? "deliverable.txt",
+      mimeType: input.mimeType ?? "text/plain",
+      sizeBytes: body.length,
+    },
+  );
+  if (response.status !== 201) {
+    throw new Error(`Failed to create upload intent: ${JSON.stringify(response.body)}`);
+  }
+
+  const intent = response.body.intent as {
+    uploadId: string;
+    upload: { url: string; method: string; headers: Record<string, string> };
+  };
+  const upload = await fetch(intent.upload.url, {
+    method: intent.upload.method,
+    headers: intent.upload.headers,
+    body: new Uint8Array(body),
+  });
+  if (!upload.ok) {
+    throw new Error(`Storage upload failed: ${upload.status} ${await upload.text()}`);
+  }
+
+  const completed = await client.post(`/api/v1/organizations/${organizationId}/assets/complete`, {
+    uploadId: intent.uploadId,
+  });
+  if (completed.status !== 201) {
+    throw new Error(`Failed to complete upload: ${JSON.stringify(completed.body)}`);
+  }
+  return completed.body.asset as AssetView;
+}
+
 export async function resetDatabase(): Promise<void> {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE TABLE "audit_logs", "password_reset_tokens", "invitations", "sessions", "workflow_events", "tasks", "content_items", "project_memberships", "projects", "client_memberships", "clients", "organization_memberships", "organizations", "users" RESTART IDENTITY CASCADE',
+    'TRUNCATE TABLE "outbox_events", "notifications", "reviews", "asset_uploads", "assets", "audit_logs", "password_reset_tokens", "invitations", "sessions", "workflow_events", "tasks", "content_items", "project_memberships", "projects", "client_memberships", "clients", "organization_memberships", "organizations", "users" RESTART IDENTITY CASCADE',
   );
 }

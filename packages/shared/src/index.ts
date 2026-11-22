@@ -189,3 +189,46 @@ export const TASK_PRIORITY_LABELS: Record<TaskPriority, string> = {
   HIGH: "High",
   URGENT: "Urgent",
 };
+
+export const ALLOWED_ASSET_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "video/mp4",
+  "video/quicktime",
+  "video/webm",
+  "audio/mpeg",
+  "audio/wav",
+  "audio/x-wav",
+  "application/pdf",
+  "text/plain",
+  "text/markdown",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+] as const;
+
+export type AllowedAssetMimeType = (typeof ALLOWED_ASSET_MIME_TYPES)[number];
+
+export function isAllowedAssetMimeType(value: string): boolean {
+  return (ALLOWED_ASSET_MIME_TYPES as readonly string[]).includes(value);
+}
+
+export const REVIEW_DECISION_LABELS = {
+  INTERNAL_FEEDBACK: "Internal feedback",
+  CLIENT_APPROVED: "Approved by client",
+  CLIENT_REVISION_REQUESTED: "Revision requested",
+} as const;
+
+export const NOTIFICATION_TYPE_LABELS = {
+  TASK_ASSIGNED: "Task assigned",
+  CONTENT_ASSIGNED: "Content assigned",
+  CONTENT_SUBMITTED: "Content submitted",
+  REVIEW_FEEDBACK: "Review feedback",
+  CONTENT_APPROVED: "Content approved",
+  REVISION_REQUESTED: "Revision requested",
+  DEADLINE_REMINDER: "Deadline reminder",
+  INVITATION: "Invitation",
+} as const;

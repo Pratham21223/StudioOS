@@ -17,6 +17,19 @@ describe("service health and error envelope", () => {
     expect(versioned.status).toBe(200);
   });
 
+  it("publishes the OpenAPI contract and documentation UI", async () => {
+    const spec = await request(app).get("/api/v1/openapi.json");
+    expect(spec.status).toBe(200);
+    expect(spec.body.openapi).toBe("3.0.3");
+    expect(spec.body.info.title).toBe("StudioOS API");
+    expect(spec.body.paths["/client-portal/content-items/{contentId}/approve"]).toBeDefined();
+    expect(spec.body.paths["/organizations/{orgId}/assets/upload-intents"]).toBeDefined();
+
+    const docs = await request(app).get("/api/docs");
+    expect(docs.status).toBe(200);
+    expect(docs.text).toContain("swagger-ui");
+  });
+
   it("applies secure headers and a narrow CORS allowlist", async () => {
     const live = await request(app).get("/health");
     expect(live.headers["x-content-type-options"]).toBe("nosniff");

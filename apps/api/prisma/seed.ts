@@ -320,6 +320,24 @@ async function main(): Promise<void> {
           },
         });
         contentIds.set(demoContent.title, updated.id);
+
+        if (demoContent.status === "READY_TO_PUBLISH") {
+          const existingReview = await tx.review.findFirst({
+            where: { contentItemId: updated.id, decision: "CLIENT_APPROVED" },
+          });
+          if (!existingReview) {
+            await tx.review.create({
+              data: {
+                organizationId: organization.id,
+                contentItemId: updated.id,
+                reviewerId: clientUser.id,
+                decision: "CLIENT_APPROVED",
+                contentVersion: updated.version,
+                feedback: "Approved for launch.",
+              },
+            });
+          }
+        }
         continue;
       }
 
@@ -356,6 +374,20 @@ async function main(): Promise<void> {
             fromStatus = toStatus;
             return event;
           }),
+        });
+      }
+
+      if (demoContent.status === "READY_TO_PUBLISH") {
+        await tx.review.create({
+          data: {
+            organizationId: organization.id,
+            contentItemId: content.id,
+            reviewerId: clientUser.id,
+            decision: "CLIENT_APPROVED",
+            contentVersion: content.version,
+            feedback: "Approved for launch.",
+            createdAt: new Date(Date.now() - 30 * 60 * 1000),
+          },
         });
       }
     }

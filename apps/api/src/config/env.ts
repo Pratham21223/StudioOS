@@ -57,11 +57,22 @@ const envSchema = z.object({
   S3_BUCKET: z.string().optional(),
   S3_ACCESS_KEY_ID: z.string().optional(),
   S3_SECRET_ACCESS_KEY: z.string().optional(),
-  S3_ENDPOINT: z.string().optional(),
+  S3_ENDPOINT: z.string().url().optional(),
+  S3_AUTO_CREATE_BUCKET: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  UPLOAD_URL_TTL_MINUTES: z.coerce.number().int().min(1).max(60).default(15),
+  DOWNLOAD_URL_TTL_MINUTES: z.coerce.number().int().min(1).max(60).default(10),
+  ASSET_MAX_BYTES: z.coerce.number().int().min(1).default(262_144_000),
 
-  EMAIL_PROVIDER: z.enum(["console", "resend", "ses"]).default("console"),
+  EMAIL_PROVIDER: z.enum(["console", "resend"]).default("console"),
   EMAIL_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().optional(),
+  QUEUE_PREFIX: z.string().min(1).max(32).default("studioos"),
+  EMAIL_JOB_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(4),
+  EMAIL_JOB_BACKOFF_MS: z.coerce.number().int().min(10).max(600_000).default(5_000),
+  MONITORING_WEBHOOK_URL: z.string().url().optional(),
 
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   SEED_PASSWORD: z.string().optional(),

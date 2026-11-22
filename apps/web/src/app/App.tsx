@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, type ReactNode } from "react";
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { AlertCircle, ArrowRight, Building2, Loader2, RefreshCw } from "lucide-react";
+import { AlertCircle, ArrowRight, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "../components/ui";
 import { safeNextPath } from "../lib/utils";
 import { useAuth } from "./AuthProvider";
@@ -8,6 +8,9 @@ import { ProtectedRoute } from "./ProtectedRoute";
 
 const AppShell = lazy(() =>
   import("../components/AppShell").then((module) => ({ default: module.AppShell })),
+);
+const PortalShell = lazy(() =>
+  import("../components/PortalShell").then((module) => ({ default: module.PortalShell })),
 );
 const AcceptInvitationPage = lazy(() =>
   import("../features/auth/AcceptInvitationPage").then((module) => ({
@@ -68,6 +71,31 @@ const ContentDetailPage = lazy(() =>
 const TasksPage = lazy(() =>
   import("../features/tasks/TasksPage").then((module) => ({
     default: module.TasksPage,
+  })),
+);
+const AssetsPage = lazy(() =>
+  import("../features/assets/AssetsPage").then((module) => ({
+    default: module.AssetsPage,
+  })),
+);
+const NotificationsPage = lazy(() =>
+  import("../features/notifications/NotificationsPage").then((module) => ({
+    default: module.NotificationsPage,
+  })),
+);
+const PortalPage = lazy(() =>
+  import("../features/portal/PortalPage").then((module) => ({
+    default: module.PortalPage,
+  })),
+);
+const PortalProjectPage = lazy(() =>
+  import("../features/portal/PortalProjectPage").then((module) => ({
+    default: module.PortalProjectPage,
+  })),
+);
+const PortalContentPage = lazy(() =>
+  import("../features/portal/PortalContentPage").then((module) => ({
+    default: module.PortalContentPage,
   })),
 );
 const OverviewPage = lazy(() =>
@@ -131,12 +159,15 @@ function BootError({ message, onRetry }: { message: string; onRetry: () => Promi
 }
 
 function HomeRedirect() {
-  const { user, memberships, loading } = useAuth();
+  const { user, memberships, clientMemberships, loading } = useAuth();
 
   if (loading) return <BootScreen />;
   if (!user) return <Navigate to="/login" replace />;
-  if (memberships.length === 0) return <Navigate to="/no-workspace" replace />;
-  return <Navigate to={`/orgs/${memberships[0]!.organization.id}`} replace />;
+  if (memberships.length > 0) {
+    return <Navigate to={`/orgs/${memberships[0]!.organization.id}`} replace />;
+  }
+  if (clientMemberships.length > 0) return <Navigate to="/portal" replace />;
+  return <Navigate to="/no-workspace" replace />;
 }
 
 function NoWorkspacePage() {
@@ -144,44 +175,21 @@ function NoWorkspacePage() {
   const navigate = useNavigate();
 
   if (!user) return <Navigate to="/login" replace />;
-
-  const hasClientAccess = clientMemberships.length > 0;
+  if (clientMemberships.length > 0) return <Navigate to="/portal" replace />;
 
   return (
     <div className="grid min-h-screen place-items-center bg-cream-50 px-6">
       <div className="w-full max-w-lg rounded-xl border border-cream-200 bg-white p-8 shadow-card">
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent-600">
-          {hasClientAccess ? "Client access" : "No workspace access"}
+          No workspace access
         </p>
         <h1 className="mt-2 font-display text-3xl tracking-tight text-ink-900">
-          {hasClientAccess
-            ? "You're connected as a client contact."
-            : "You're signed in, but there's no workspace here."}
+          You&apos;re signed in, but there&apos;s no workspace here.
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-ink-500">
-          {hasClientAccess
-            ? "Your client portal access is ready. Deliverable review and approvals will open here as the client portal is completed."
-            : "Your memberships may have been deactivated or removed. Ask a workspace admin to restore access, or sign in with another account."}
+          Your memberships may have been deactivated or removed. Ask a workspace admin to restore
+          access, or sign in with another account.
         </p>
-
-        {hasClientAccess ? (
-          <ul className="mt-5 space-y-2">
-            {clientMemberships.map((membership) => (
-              <li
-                key={membership.id}
-                className="flex items-center gap-3 rounded-lg border border-cream-200 bg-cream-50 px-3.5 py-3"
-              >
-                <span className="grid size-8 place-items-center rounded-lg bg-white text-ink-500">
-                  <Building2 className="size-4" aria-hidden="true" />
-                </span>
-                <div>
-                  <p className="text-sm font-medium text-ink-900">{membership.client.name}</p>
-                  <p className="text-[11px] text-ink-500">{membership.organization.name}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : null}
 
         <div className="mt-6 flex flex-wrap gap-2">
           <Button
@@ -222,8 +230,20 @@ function NotFoundPage() {
   );
 }
 
+function PortalRoute({ children }: { children: ReactNode }) {
+  const { user, memberships, clientMemberships, loading } = useAuth();
+
+  if (loading) return <BootScreen />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (clientMemberships.length > 0) return <>{children}</>;
+  if (memberships[0]) {
+    return <Navigate to={`/orgs/${memberships[0].organization.id}`} replace />;
+  }
+  return <Navigate to="/no-workspace" replace />;
+}
+
 function SessionRedirect({ children }: { children: ReactNode }) {
-  const { user, memberships } = useAuth();
+  const { user, memberships, clientMemberships } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -232,12 +252,14 @@ function SessionRedirect({ children }: { children: ReactNode }) {
     const next = safeNextPath(new URLSearchParams(location.search).get("next"));
     if (next) {
       navigate(next, { replace: true });
-    } else if (memberships.length === 0) {
-      navigate("/no-workspace", { replace: true });
-    } else {
+    } else if (memberships.length > 0) {
       navigate(`/orgs/${memberships[0]!.organization.id}`, { replace: true });
+    } else if (clientMemberships.length > 0) {
+      navigate("/portal", { replace: true });
+    } else {
+      navigate("/no-workspace", { replace: true });
     }
-  }, [user, memberships, navigate, location.search]);
+  }, [user, memberships, clientMemberships, navigate, location.search]);
 
   if (user) return null;
   return <>{children}</>;
@@ -290,8 +312,23 @@ export function App() {
           <Route path="content" element={<ContentPage />} />
           <Route path="content/:contentId" element={<ContentDetailPage />} />
           <Route path="tasks" element={<TasksPage />} />
+          <Route path="assets" element={<AssetsPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
           <Route path="members" element={<MembersPage />} />
           <Route path="settings" element={<SettingsPage />} />
+        </Route>
+        <Route
+          path="/portal"
+          element={
+            <PortalRoute>
+              <PortalShell />
+            </PortalRoute>
+          }
+        >
+          <Route index element={<PortalPage />} />
+          <Route path="projects/:projectId" element={<PortalProjectPage />} />
+          <Route path="content/:contentId" element={<PortalContentPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
         </Route>
         <Route path="/" element={<HomeRedirect />} />
         <Route path="*" element={<NotFoundPage />} />

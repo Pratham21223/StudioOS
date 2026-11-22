@@ -34,6 +34,18 @@ export function formatDateTime(value: string): string {
   }).format(new Date(value));
 }
 
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+export function formatFileType(mimeType: string): string {
+  const [, subtype = "file"] = mimeType.split("/");
+  return subtype.replace(/^x-/, "").replace("vnd.openxmlformats-officedocument.", "").slice(0, 12);
+}
+
 export function firstName(name: string): string {
   return name.trim().split(/\s+/)[0] ?? name;
 }

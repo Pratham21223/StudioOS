@@ -36,6 +36,15 @@ services:
       timeout: 3s
       retries: 10
 
+  s3:
+    image: adobe/s3mock:latest
+    container_name: studioos-s3
+    restart: unless-stopped
+    environment:
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: ${S3_BUCKET:-studioos-development}
+    ports:
+      - "9090:9090"
+
 volumes:
   postgres-data:
   redis-data:

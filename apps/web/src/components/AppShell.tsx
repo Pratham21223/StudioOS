@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
+  Bell,
   Building2,
   ChevronDown,
   Clapperboard,
@@ -9,6 +10,7 @@ import {
   ListChecks,
   LogOut,
   Menu,
+  Paperclip,
   Settings,
   Users,
   X,
@@ -18,12 +20,13 @@ import { useAuth } from "../app/AuthProvider";
 import { Logo } from "./Logo";
 import { Avatar, Badge, Spinner } from "./ui";
 import { cn, roleLabel } from "../lib/utils";
+import { api } from "../lib/api";
 import { useActiveMembership } from "../features/organizations/useActiveMembership";
 
 const roadmap = [
-  { label: "Assets & client approval", milestone: "M4" },
-  { label: "Notifications & dashboard", milestone: "M5" },
-  { label: "API docs & deployment", milestone: "M6" },
+  { label: "Hardening & E2E", milestone: "M6" },
+  { label: "OpenAPI documentation", milestone: "M6" },
+  { label: "Production deployment", milestone: "M6" },
 ];
 
 export function AppShell() {
@@ -32,6 +35,21 @@ export function AppShell() {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    api
+      .get<{ unreadCount: number }>("/notifications?limit=1")
+      .then((response) => {
+        if (active) setUnreadCount(response.unreadCount);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   if (!user) return null;
 
@@ -104,6 +122,20 @@ export function AppShell() {
       icon: ListChecks,
       end: false,
       visible: canViewTasks,
+    },
+    {
+      to: `/orgs/${membership.organization.id}/assets`,
+      label: "Assets",
+      icon: Paperclip,
+      end: false,
+      visible: canViewContent,
+    },
+    {
+      to: `/orgs/${membership.organization.id}/notifications`,
+      label: "Notifications",
+      icon: Bell,
+      end: false,
+      visible: true,
     },
     {
       to: `/orgs/${membership.organization.id}/members`,
@@ -208,7 +240,12 @@ export function AppShell() {
               }
             >
               <item.icon className="size-4" aria-hidden="true" />
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {item.label === "Notifications" && unreadCount > 0 ? (
+                <span className="rounded-full bg-accent-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              ) : null}
             </NavLink>
           ))}
       </nav>
@@ -304,7 +341,7 @@ export function AppShell() {
         </main>
 
         <footer className="mx-auto flex w-full max-w-6xl flex-col gap-2 border-t border-cream-200 px-4 py-6 text-[11px] text-ink-400 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <span>StudioOS · Milestone 3 · Content workflow and production tasks</span>
+          <span>StudioOS · Milestone 5 · Assets, client approval, notifications & dashboards</span>
           <span>Session-based auth · Server-enforced permissions</span>
         </footer>
       </div>

@@ -101,7 +101,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(response.user);
     setMemberships(response.memberships);
     setClientMemberships(response.clientMemberships);
-    return response.memberships[0]?.organization.id ?? null;
+    if (response.memberships[0]) {
+      return `/orgs/${response.memberships[0].organization.id}`;
+    }
+    return response.clientMemberships.length > 0 ? "/portal" : null;
   }, []);
 
   const register = useCallback(async (input: RegisterInput) => {
@@ -109,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(response.user);
     setMemberships(response.memberships);
     setClientMemberships(response.clientMemberships);
-    return response.memberships[0]?.organization.id ?? null;
+    return response.memberships[0] ? `/orgs/${response.memberships[0].organization.id}` : null;
   }, []);
 
   const acceptInvitation = useCallback(async (input: AcceptInvitationInput) => {
@@ -118,7 +121,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(me.user);
     setMemberships(me.memberships);
     setClientMemberships(me.clientMemberships);
-    return response.memberships[0]?.organization.id ?? me.memberships[0]?.organization.id ?? null;
+    const organization = response.memberships[0] ?? me.memberships[0];
+    if (organization) return `/orgs/${organization.organization.id}`;
+    return me.clientMemberships.length > 0 ? "/portal" : null;
   }, []);
 
   const logout = useCallback(async () => {

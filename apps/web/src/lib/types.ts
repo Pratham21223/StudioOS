@@ -209,3 +209,172 @@ export type Task = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type Asset = {
+  id: string;
+  originalFilename: string;
+  mimeType: string;
+  sizeBytes: number;
+  project: {
+    id: string;
+    name: string;
+    status: ProjectStatus;
+  };
+  contentItem: {
+    id: string;
+    title: string;
+    status: ContentStatus;
+  } | null;
+  uploadedBy: User | null;
+  createdAt: string;
+};
+
+export type ReviewDecision = "INTERNAL_FEEDBACK" | "CLIENT_APPROVED" | "CLIENT_REVISION_REQUESTED";
+
+export type Review = {
+  id: string;
+  decision: ReviewDecision;
+  contentVersion: number;
+  feedback: string | null;
+  reviewer: User | null;
+  asset: {
+    id: string;
+    originalFilename: string;
+    mimeType: string;
+    sizeBytes: number;
+  } | null;
+  content: {
+    id: string;
+    title: string;
+    status: ContentStatus;
+  };
+  project: {
+    id: string;
+    name: string;
+  };
+  createdAt: string;
+};
+
+export type NotificationType =
+  | "TASK_ASSIGNED"
+  | "CONTENT_ASSIGNED"
+  | "CONTENT_SUBMITTED"
+  | "REVIEW_FEEDBACK"
+  | "CONTENT_APPROVED"
+  | "REVISION_REQUESTED"
+  | "DEADLINE_REMINDER"
+  | "INVITATION";
+
+export type Notification = {
+  id: string;
+  organizationId: string | null;
+  type: NotificationType;
+  title: string;
+  body: string | null;
+  payload: Record<string, unknown> | null;
+  readAt: string | null;
+  createdAt: string;
+};
+
+export type DashboardContentStatusCount = {
+  status: ContentStatus;
+  count: number;
+};
+
+export type DashboardTask = {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  dueDate: string | null;
+  project: { id: string; name: string };
+  contentItem: { id: string; title: string } | null;
+};
+
+export type DashboardOverdueTask = Omit<DashboardTask, "contentItem"> & {
+  assignee: { id: string; name: string } | null;
+};
+
+export type DashboardProject = {
+  id: string;
+  name: string;
+  status: ProjectStatus;
+  deadline: string | null;
+  client: { id: string; name: string };
+  taskCount: number;
+  contentByStatus: DashboardContentStatusCount[];
+};
+
+export type Dashboard = {
+  scope: "ORGANIZATION" | "PROJECTS";
+  counts: {
+    activeProjects: number;
+    activeContent: number;
+    awaitingApproval: number;
+    myOpenTasks: number;
+    overdueTasks: number;
+    unreadNotifications: number;
+  };
+  contentByStatus: DashboardContentStatusCount[];
+  awaitingApproval: Array<{
+    id: string;
+    title: string;
+    deadline: string | null;
+    version: number;
+    updatedAt: string;
+    project: { id: string; name: string };
+  }>;
+  myTasks: DashboardTask[];
+  overdueTasks: DashboardOverdueTask[];
+  projects: DashboardProject[];
+};
+
+export type PortalAsset = {
+  id: string;
+  originalFilename: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
+};
+
+export type PortalReview = {
+  id: string;
+  decision: ReviewDecision;
+  contentVersion: number;
+  feedback: string | null;
+  reviewer: { id: string; name: string; email: string } | null;
+  asset: { id: string; originalFilename: string } | null;
+  createdAt: string;
+};
+
+export type PortalProject = {
+  id: string;
+  name: string;
+  description: string | null;
+  status: ProjectStatus;
+  startDate: string | null;
+  deadline: string | null;
+  client: { id: string; name: string; status: ClientStatus };
+  visibleContentCount: number;
+  awaitingReviewCount: number;
+  createdAt: string;
+};
+
+export type PortalContent = {
+  id: string;
+  title: string;
+  description: string | null;
+  type: ContentType;
+  status: ContentStatus;
+  deadline: string | null;
+  version: number;
+  project: {
+    id: string;
+    name: string;
+    client: { id: string; name: string };
+  };
+  assets: PortalAsset[];
+  reviews: PortalReview[];
+  updatedAt: string;
+  createdAt: string;
+};

@@ -3,10 +3,8 @@
 StudioOS is a multi-tenant content production and operations platform for media agencies. It
 brings clients, projects, deliverables, tasks, assets, reviews, and approvals into one workspace.
 
-This repository currently implements **Milestone 0 (foundation)**, **Milestone 1 (database,
-authentication, and tenancy)**, **Milestone 2 (clients and projects)**, and **Milestone 3 (content
-and task workflows)** from the product specification. Later milestones build on this secure
-foundation rather than replacing it.
+This repository currently implements **Milestone 0 (foundation)** through **Milestone 6
+(hardening and deployment)** from the product specification.
 
 ---
 
@@ -15,22 +13,27 @@ foundation rather than replacing it.
 | Area | Status |
 |---|---|
 | Monorepo, TypeScript, linting, CI, Docker Compose | Complete (M0) |
-| PostgreSQL schema and migrations | Complete (M1, M2, M3) |
+| PostgreSQL schema and migrations | Complete (M1–M6) |
 | Registration, login, logout, sessions | Complete (M1) |
 | Password reset with hashed single-use tokens | Complete (M1) |
 | Organizations, memberships, centralized RBAC | Complete (M1) |
 | Internal invitations with hashed single-use tokens | Complete (M1) |
-| Tenant-isolation and authorization tests | Complete (M1, M2, M3) |
+| Tenant-isolation and authorization tests | Complete (M1–M6) |
 | React workspace: auth, overview, members, settings | Complete (M1) |
 | Clients, client portal invitations, project CRUD, project teams | Complete (M2) |
-| Client/project UI: directory, client detail, project workspace | Complete (M2) |
 | Content items, fixed workflow, workflow event history | Complete (M3) |
 | Task CRUD, assignment, statuses, filters, overdue views | Complete (M3) |
-| Content Kanban and task board UI | Complete (M3) |
-| Email delivery, assets, client review, notifications | Not started (M4–M5) |
+| Signed direct-to-storage uploads, verified assets, downloads | Complete (M4) |
+| Internal review records and client portal approval/revisions | Complete (M4) |
+| Invitation/review/assignment email outbox and BullMQ worker | Complete (M5) |
+| In-app notifications, deadline reminders, role-aware dashboard | Complete (M5) |
+| OpenAPI contract, Swagger UI, automated browser smoke suite | Complete (M6) |
+| Production images, compose stack, release workflow, backups, runbook | Complete (M6) |
 
 The backend tests enforce tenant isolation, client and project boundaries, workflow validity, task
-assignment rules, and server-side role authorization for each feature module.
+assignment rules, storage authorization, version-aware client approval, notification scoping, and
+server-side role authorization for each feature module. Browser smoke tests cover both the internal
+workspace and client portal.
 
 ---
 
@@ -43,9 +46,12 @@ assignment rules, and server-side role authorization for each feature module.
 - **Passwords:** Argon2id via `@node-rs/argon2`
 - **Validation:** Zod
 - **Logging:** Pino (structured JSON)
+- **Files:** S3-compatible object storage with short-lived signed URLs
+- **Jobs/queue:** Redis + BullMQ with a transactional outbox
+- **Email:** console (development) or Resend behind an adapter
 - **Web:** React 19 + Vite + React Router + Tailwind CSS 4
-- **Tests:** Vitest + Supertest + a real PostgreSQL test database
-- **Local infrastructure:** Docker Compose (PostgreSQL, Redis)
+- **Tests:** Vitest + Supertest + a real PostgreSQL test database + S3 mock
+- **Local infrastructure:** Docker Compose (PostgreSQL, Redis, S3 mock)
 - **CI:** GitHub Actions
 
 Dependency versions are pinned in the workspace `package.json` files.
@@ -64,12 +70,14 @@ studioos/
 │   │   │   └── seed.ts
 │   │   ├── src/
 │   │   │   ├── config/          # env validation + structured logger
-│   │   │   ├── infrastructure/  # Prisma client
-│   │   │   ├── middleware/      # auth, tenant, CSRF, rate limits, errors
-│   │   │   ├── modules/         # auth, orgs, clients, projects, content, tasks, invitations, audit
+│   │   │   ├── infrastructure/  # Prisma, S3 storage, BullMQ queue, email adapter
+│   │   │   ├── middleware/      # auth, tenant, client portal, CSRF, rate limits, errors
+│   │   │   ├── modules/         # auth, orgs, clients, projects, content, tasks, assets,
+│   │   │   │                    # reviews, portal, notifications, dashboard, audit
 │   │   │   ├── shared/          # errors, validation, crypto, presenters
 │   │   │   ├── app.ts
-│   │   │   └── server.ts
+│   │   │   ├── server.ts
+│   │   │   └── worker.ts        # separately runnable BullMQ worker
 │   │   └── tests/               # integration + security tests
 │   └── web/
 │       └── src/
@@ -80,10 +88,18 @@ studioos/
 ├── packages/
 │   └── shared/                  # roles + centralized permission matrix
 ├── infra/
-│   └── postgres/init.sql
-├── .github/workflows/ci.yml
+│   ├── postgres/init.sql
+│   ├── docker/                  # production API/web Dockerfiles + nginx
+│   └── scripts/                 # PostgreSQL backup/restore
+├── e2e/                         # Playwright browser smoke tests
+├── docs/                        # security review + production runbook
+├── .github/workflows/
+│   ├── ci.yml
+│   └── release.yml
 ├── docker-compose.yml
+├── docker-compose.prod.yml
 ├── .env.example
+├── .env.production.example
 └── README.md
 ```
 
@@ -121,19 +137,22 @@ request body and parameter.
    Put the generated value into `SESSION_SECRET`. Set `SEED_PASSWORD` to a development-only
    password of at least 12 characters. Never commit `.env`.
 
-3. **Start PostgreSQL and Redis**
+3. **Start PostgreSQL, Redis, and S3-compatible storage**
 
    ```bash
    npm run infra:up
    ```
 
-   Postgres is exposed on `5432`; the containerised Redis is exposed on `6380` to avoid clashing
-   with a typical host Redis on `6379`. Both are development defaults only. Wait for both health
-   checks to pass:
+   Postgres is exposed on `5432`, Redis on `6380` (to avoid clashing with a host Redis on
+   `6379`), and the development S3 mock on `9090`. These are development defaults only. Wait for
+   the health checks to pass:
 
    ```bash
    docker compose ps
    ```
+
+   The local S3 mock (`adobe/s3mock`) is not a production storage service. Set `S3_ENDPOINT` to
+   your S3-compatible provider in staging/production and disable `S3_AUTO_CREATE_BUCKET`.
 
 4. **Apply migrations**
 
@@ -168,11 +187,13 @@ request body and parameter.
    Five content items span the workflow from `BRIEF` through `READY_TO_PUBLISH`, with matching
    workflow history. Five tasks include overdue, in-progress, and completed examples.
 
-6. **Run the API and web app**
+6. **Run the API, web app, and worker**
 
    ```bash
    npm run dev
    ```
+
+   This runs three processes: the API, Vite, and the BullMQ worker.
 
    - Web: <http://localhost:5174>
    - API: <http://localhost:4000>
@@ -182,18 +203,24 @@ request body and parameter.
    Port `5174` is used for the web app. If you change it, update `WEB_ORIGIN` and the
    invitation/reset base URLs in `.env` as well.
 
+   Email delivery defaults to the `console` adapter, which logs only recipient and subject.
+   Configure `EMAIL_PROVIDER=resend` and `EMAIL_API_KEY` to deliver real email.
+
 ---
 
 ## Commands
 
 | Command | Purpose |
 |---|---|
-| `npm run dev` | Run API and web concurrently |
+| `npm run dev` | Run API, web, and worker concurrently |
 | `npm run dev:api` | Run only the API with hot reload |
 | `npm run dev:web` | Run only the web app |
+| `npm run dev:worker` | Run only the BullMQ worker |
 | `npm run lint` | ESLint across all workspaces |
 | `npm run typecheck` | TypeScript checks for shared, API, and web |
 | `npm test` | API unit + integration tests against the test database |
+| `npm run test:e2e` | Playwright browser smoke tests |
+| `npm run test:e2e:install` | Install Chromium and system deps for Playwright |
 | `npm run build` | Build shared package, API, and web |
 | `npm run format` | Format with Prettier |
 | `npm run format:check` | Verify formatting (used in CI) |
@@ -222,7 +249,7 @@ npm run db:migrate
 
 ---
 
-## API implemented in Milestones 1–3
+## API implemented in Milestones 1–5
 
 All routes are under `/api/v1`. Cookie-authenticated unsafe requests require a matching
 `X-CSRF-Token` header and `studioos_csrf` cookie. The web client requests a token from
@@ -266,8 +293,8 @@ All routes are under `/api/v1`. Cookie-authenticated unsafe requests require a m
 | POST | `/organizations/:orgId/clients/:clientId/invitations` |
 
 Client invitations create a `ClientMembership`, never an internal `OrganizationMembership`.
-Client users have no access to internal organization routes. The client portal UI itself is
-Milestone 4.
+Client users have no access to internal organization routes. Their portal experience lives under
+`/client-portal` and `/portal` in the web app.
 
 ### Projects and project teams
 
@@ -340,6 +367,80 @@ Task list filters: `status`, `priority`, `projectId`, `contentItemId`, `assignee
 Admins, project managers, and producers create and edit tasks. Assignees (including editors) can
 change the status of their own task through the status endpoint. Editors cannot create or edit task
 metadata. Tasks are read-only when their project is `COMPLETED`.
+
+### Assets and storage
+
+| Method | Endpoint |
+|---|---|
+| GET | `/organizations/:orgId/assets` |
+| POST | `/organizations/:orgId/assets/upload-intents` |
+| POST | `/organizations/:orgId/assets/complete` |
+| GET | `/organizations/:orgId/assets/:assetId` |
+| POST | `/organizations/:orgId/assets/:assetId/download-url` |
+| GET | `/organizations/:orgId/content-items/:contentId/assets` |
+
+The browser requests a short-lived signed `PUT` URL, uploads the file directly to object storage,
+then calls the completion endpoint. The API verifies the object's existence, byte size, and MIME
+type against the stored upload intent before creating the `Asset` record. Upload intents expire and
+are single-use. Downloads are issued as short-lived signed URLs with an attachment or inline
+disposition. Asset reads follow project access; client contacts use the portal download endpoint.
+
+Allowed types include common image, video, audio, PDF, text, and office-document formats. The
+default per-file limit is 250 MB (`ASSET_MAX_BYTES`).
+
+### Reviews and client approval
+
+| Method | Endpoint |
+|---|---|
+| GET | `/organizations/:orgId/content-items/:contentId/reviews` |
+| POST | `/organizations/:orgId/content-items/:contentId/reviews` |
+| GET | `/organizations/:orgId/reviews` |
+
+Internal users with `REVIEWS_INTERNAL` can record feedback against the current content version and
+optionally an asset. Feedback is retained and creates notifications for the assigned team.
+
+### Client portal
+
+| Method | Endpoint |
+|---|---|
+| GET | `/client-portal/projects` |
+| GET | `/client-portal/projects/:projectId/content-items` |
+| GET | `/client-portal/content-items/:contentId` |
+| POST | `/client-portal/content-items/:contentId/approve` |
+| POST | `/client-portal/content-items/:contentId/request-revision` |
+| POST | `/client-portal/assets/:assetId/download-url` |
+
+Client contacts see only projects and deliverables for clients they belong to. A deliverable becomes
+visible after it reaches `CLIENT_APPROVAL`. Internal review feedback is never returned by portal
+endpoints.
+
+Approval and revision requests require `expectedVersion`. The API verifies the user's client
+membership, the `CLIENT_APPROVAL` state, and the version inside a transaction, then:
+
+- records a `Review` decision with the reviewed version and optional asset;
+- writes the workflow event;
+- moves content to `READY_TO_PUBLISH` on approval or `EDITING` on revision;
+- notifies the assigned production team.
+
+Requests with a stale version or a non-approval state return `409`.
+
+### Notifications, dashboard, and jobs
+
+| Method | Endpoint |
+|---|---|
+| GET | `/notifications` |
+| PATCH | `/notifications/:notificationId/read` |
+| POST | `/notifications/read-all` |
+| GET | `/organizations/:orgId/dashboard` |
+
+Notifications are always scoped to the authenticated user. The dashboard is scoped to the tenant
+and role: managers see organization-wide project/content/task metrics; producers and editors see
+assigned projects and their own task views.
+
+The worker polls the transactional outbox for email events. Outbox payloads are encrypted at rest
+because invitation and password-reset emails contain credentials. BullMQ retries with exponential
+backoff and records failed jobs and outbox errors. A repeatable job creates idempotent task deadline
+reminders every 12 hours.
 
 ### Invitations
 
@@ -461,6 +562,54 @@ Every response includes an `X-Request-Id` header. Request IDs appear in structur
 - Content, workflow, and task changes are written to `audit_logs` in the same transaction as the
   change.
 
+### Assets and file access
+
+- Upload intents are random, expiring, single-use, and bound to the creating user, tenant, project,
+  content item, filename, MIME type, and byte size.
+- The browser uploads directly to object storage; file bytes never pass through Express.
+- Completion calls `HeadObject` and compares the stored size and MIME type with the intent before
+  creating an asset. A claimed intent is marked complete with a conditional update, so a duplicate
+  completion cannot create two assets.
+- Storage keys are generated server-side and never accepted from clients for authorization.
+- Uploads and downloads require project access. Client downloads require an active membership for
+  the content item's client and a client-visible content state.
+- Signed URLs are short-lived and are never logged.
+- MIME types are allowlisted, filenames are sanitized for storage keys, and sizes are bounded.
+- Assets, uploads, reviews, and workflow events use composite tenant foreign keys. A review's asset
+  must belong to the reviewed content item, and asset content must belong to the asset's project.
+- Asset metadata and review decisions are audited in the same transaction.
+
+### Client portal and approvals
+
+- Client portal routes require an active `ClientMembership`; organization routes remain
+  inaccessible to client-only users.
+- Portal queries join through `client_memberships` and only return content in `CLIENT_APPROVAL` or
+  `READY_TO_PUBLISH`.
+- Internal review records are filtered out of every portal response.
+- Client decisions compare `expectedVersion` with the current version and use a version/status
+  compare-and-swap inside the transaction. Stale or repeated decisions are rejected.
+- Approval records the reviewed content version, reviewer, decision, optional asset, and timestamp.
+  Revision requires feedback and moves the item back to `EDITING`.
+- A revision hides the deliverable from the portal until it is submitted for client approval again.
+- Approval and revision events, reviews, audit entries, notifications, and outbox emails commit in
+  one transaction.
+
+### Notifications and background jobs
+
+- Notification queries are always filtered by the authenticated `user_id`; a user cannot read or
+  mark another user's notification.
+- In-app notifications and outbox events are written inside the domain transaction.
+- Outbox email payloads are AES-256-GCM encrypted with a key derived from `SESSION_SECRET`; a
+  database leak does not expose usable invitation or reset links.
+- The worker uses BullMQ with bounded exponential retries. Exhausted jobs update the outbox row to
+  `FAILED` with the last error and remain visible in BullMQ's failed set.
+- The email adapter never logs message bodies. Console delivery logs only recipient and subject.
+- Deadline reminders use a unique dedupe key per task, assignee, and day, making repeat scans
+  idempotent.
+- Queue failure never rolls back committed business data; the worker dispatcher retries pending
+  outbox rows.
+- Dashboard counts and lists are filtered by tenant and by project membership for non-managers.
+
 ### Invitations
 
 - 256-bit random tokens; only HMAC hashes are stored.
@@ -469,8 +618,8 @@ Every response includes an `X-Request-Id` header. Request IDs appear in structur
 - An existing account must sign in as the invited email; anonymous acceptance cannot add an
   invitation to an unrelated existing account.
 - Reissuing a pending invitation rotates the token (the old link stops working).
-- The raw invite URL is only returned in non-production responses until asynchronous email
-  delivery is implemented in Milestone 5.
+- Invitation and password-reset emails are encrypted in the transactional outbox and delivered by
+  the worker. Development responses still include the raw link for manual testing.
 
 ### Application hardening
 
@@ -483,28 +632,30 @@ Every response includes an `X-Request-Id` header. Request IDs appear in structur
 
 ### Known limitations
 
-- Email sending and BullMQ workers are not implemented yet (Milestone 5). In development,
-  invitation and reset links are returned in API responses and shown in the UI.
+- The development S3 mock is in-memory and not suitable for production. Use an S3-compatible
+  provider and disable automatic bucket creation outside development.
+- The email adapter supports `console` and Resend. Amazon SES can be added behind the same adapter
+  without changing domain code.
+- Asset version replacement (P1), feedback threads/comments (P1), and asset-level comments (P1) are
+  deferred.
+- In-app notifications are refreshed on page load; real-time push/websocket updates are not
+  implemented.
 - Rate limiting uses an in-memory express-rate-limit store. Before running multiple API instances,
   move the limiter to Redis.
 - Expired session rows are rejected on use and removed lazily; a scheduled cleanup job should be
-  added with the Milestone 5 worker.
-- Browser end-to-end tests are not automated yet (Milestone 6); the Milestone 1–3 flows were
-  exercised manually with headless Chrome in addition to the API integration suite.
-- The client portal UI and client-visible project/deliverable APIs arrive in Milestone 4. Client
-  accounts created now see an access notice listing their client memberships.
-- Assets, file uploads, reviews, comments, notification delivery, and approval records are not yet
-  built. The workflow approval transition is internal in M3; client approval is M4.
+  added to the worker.
+- Browser smoke coverage is automated for core internal/portal journeys; deeper destructive-flow
+  E2E and representative load/performance tests remain a launch activity.
 - Task checklists (P1) and task activity timelines beyond audit events are deferred.
-- Client, project, content, and task lists are not paginated yet; this is safe for the initial team
-  size but should be addressed before large tenants onboard.
-- The dashboard is a foundation overview; role-aware operational metrics arrive in Milestone 5.
+- Client, project, content, asset, and task lists are not paginated yet; this is safe for the initial
+  team size but should be addressed before large tenants onboard.
 - Production project team assignment is limited to admins and project managers. The specification's
   "limited" producer assignment capability is intentionally deferred until content ownership rules
   make the limit meaningful.
 - OpenAPI/Swagger docs, production Docker images, and deployment workflows are Milestone 6 items.
-- `npm audit` reports advisories inside Prisma's development CLI (`@prisma/config`, `effect`).
-  They are build-tool dependencies, not part of the running API. Revisit when upgrading Prisma.
+- `npm audit` reports advisories in Prisma CLI configuration dependencies (`@prisma/config`,
+  `effect`, `deepmerge-ts`). The CLI is included for migration jobs, not request handling, and only
+  parses the repository's trusted schema. Revisit on the next Prisma upgrade.
 
 ### Deployment notes
 
@@ -529,10 +680,21 @@ Every response includes an `X-Request-Id` header. Request IDs appear in structur
 - The web app uses client-side routing. Configure the production static host to serve
   `index.html` for unknown non-API paths.
 
+- Run the API and worker as separate processes (`npm run start -w @studioos/api` and
+  `npm run start:worker -w @studioos/api` in the built image). The worker needs Redis and database
+  access. Scale workers horizontally; the outbox dispatcher de-duplicates queue jobs by outbox ID.
+
+- Use a real S3-compatible bucket in production, with least-privilege credentials for
+  `PutObject`, `GetObject`, and `HeadObject`. Disable `S3_AUTO_CREATE_BUCKET` and configure the
+  bucket's CORS policy to allow `PUT` from the web origin with the `Content-Type` header.
+
+- Monitor BullMQ failed jobs and `outbox_events.status = 'FAILED'`. The outbox retains the last
+  error for diagnosis. Email bodies are encrypted at rest and never logged.
+
 
 ---
 
-## Data model (Milestones 1–3)
+## Data model (Milestones 1–5)
 
 ```text
 User ──< OrganizationMembership >── Organization
@@ -543,9 +705,12 @@ User ──< OrganizationMembership >── Organization
  │                                     │                 │
  ├──< ClientMembership                 │                 ├──< ContentItem ──< WorkflowEvent
  │                                     │                 │        │
- ├──< Task ──< ContentItem             │                 │        └──< Task
- │                                     └──< Invitation (INTERNAL or CLIENT)
- └──< WorkflowEvent
+ ├──< Task ──< ContentItem             │                 │        ├──< Asset ──< UploadIntent
+ │                                     │                 │        └──< Review
+ ├──< Notification                     │                 └──< Task
+ └──< AssetUpload                      └──< Invitation (INTERNAL or CLIENT)
+
+OutboxEvent ── encrypted email payload ──> Redis/BullMQ worker ──> email adapter
 ```
 
 Key constraints:
@@ -564,6 +729,15 @@ Key constraints:
   task's project.
 - PostgreSQL rejects workflow event pairs outside the fixed state machine and content versions
   below `1`.
+- `assets` and `asset_uploads` reference projects and content with composite tenant keys. Assets
+  linked to content must reference content from the same project.
+- `reviews` store the decision, reviewed content version, optional asset, reviewer, and feedback.
+  A composite key guarantees the selected asset belongs to the reviewed content item.
+- `notifications` are indexed by `(user_id, read_at, created_at)`; optional dedupe keys make
+  reminder jobs idempotent.
+- `outbox_events` store encrypted payloads, status, attempts, availability, dispatch/completion
+  timestamps, and the last error for observability.
+- `asset_uploads` are unique by storage key and tracked by expiry/completion timestamps.
 - `clients` is unique on `(id, organization_id)`, enabling composite tenant foreign keys.
 - Projects, client memberships, and client invitations use composite foreign keys to guarantee they
   share the client's organization.
@@ -573,8 +747,8 @@ Key constraints:
 - All child records cascade appropriately; audit actors are set to null if a user is deleted.
 - Status/role fields use PostgreSQL enums.
 
-Future tenant-owned tables (assets, reviews, comments, notifications) will follow the same composite
-tenant-scoping pattern.
+Future tenant-owned tables (comments, asset versions, email delivery tracking) will follow the same
+composite tenant-scoping pattern.
 
 ---
 
@@ -623,14 +797,41 @@ The current suite covers:
   overdue), and editor-only-own-task status updates.
 - Task tenant boundaries, cross-project content rejection, inactive/cross-tenant assignees, and
   completed-project read-only enforcement.
+- Direct-to-storage uploads with signed URLs, object metadata verification, expiry and single-use
+  intent handling, MIME/size validation, authorized downloads, and cross-tenant denial.
+- Internal review feedback with content-version and asset linkage; client access to internal review
+  records is denied.
+- Client portal scoping by `ClientMembership`; visibility only from `CLIENT_APPROVAL`; hidden
+  internal feedback; asset downloads.
+- Version-aware client approval and revision, stale-version rejection, decision records, workflow
+  events, and next-cycle review history.
+- Notification assignment, review feedback, client submission, approval, mark-read/mark-all, and
+  per-user isolation.
+- Encrypted invitation/reset outbox emails, worker success, bounded retries, failed-job
+  observability, and idempotent deadline reminders.
+- Role-aware dashboard scoping for managers, producers, editors, and cross-tenant isolation.
 - Database-level tenant integrity: composite project/client/membership/invitation foreign keys,
-  task/content project composite keys, workflow transition checks, content version checks, date
-  ordering, and invitation type-shape constraints.
-- Client, project, content, workflow, task, membership, and settings audit entries.
-- Health/readiness endpoints, request IDs, stable error envelopes, secure headers, and the CORS
-  allowlist.
+  task/content project composite keys, asset/content/project keys, review/asset keys, workflow
+  transition checks, content version checks, date ordering, and invitation type-shape constraints.
+- Client, project, content, workflow, task, asset, review, membership, and settings audit entries.
+- Full API journey: account setup → client/project → upload → review → client revision → approval
+  → notifications → dashboard → signed download.
+- OpenAPI contract availability and Swagger UI.
+- Health/readiness endpoints (database and Redis), request IDs, stable error envelopes, secure
+  headers, and the CORS allowlist.
 
-Tests require the Docker Postgres service. They do not require Redis.
+Tests require the Docker PostgreSQL, Redis, and S3 mock services (`npm run infra:up`).
+Worker retry tests use the test queue namespace and the local Redis instance.
+
+Browser smoke tests use Playwright:
+
+```bash
+npm run test:e2e:install   # once per machine or CI run
+PLAYWRIGHT_CHANNEL=chrome npm run test:e2e
+```
+
+They cover dashboard/navigation, content/assets/notifications, the client portal, and mobile
+overflow. CI installs Chromium automatically.
 
 ### CI
 
@@ -640,8 +841,12 @@ Tests require the Docker Postgres service. They do not require Redis.
 2. Prettier check
 3. ESLint
 4. Typecheck
-5. Tests against a PostgreSQL service
-6. Production builds
+5. API tests against PostgreSQL, Redis, and the S3 mock
+6. Seed browser-test data and run Playwright smoke tests
+7. Production builds
+
+`.github/workflows/release.yml` builds and publishes API/web images to GHCR on version tags, and can
+deploy manually to a configured production host.
 
 ---
 
@@ -678,9 +883,17 @@ See `.env.example` for the full list. Highlights:
 | `WEB_ORIGIN` | Exact CORS origin for the SPA |
 | `TRUST_PROXY` | Set `true` only behind a trusted reverse proxy |
 | `INVITATION_BASE_URL` / `PASSWORD_RESET_BASE_URL` | Frontend links in dev responses |
-| `REDIS_URL` | Reserved for the Milestone 5 worker; not used yet |
-| `S3_*` | Reserved for Milestone 4 asset storage |
-| `EMAIL_*` | Reserved for Milestone 5 email delivery |
+| `REDIS_URL` | BullMQ queue connection |
+| `QUEUE_PREFIX` | Queue namespace (default `studioos`) |
+| `S3_REGION` / `S3_BUCKET` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | Object storage credentials |
+| `S3_ENDPOINT` | Custom endpoint for S3-compatible storage (dev S3 mock) |
+| `S3_AUTO_CREATE_BUCKET` | Development convenience; disable in production |
+| `UPLOAD_URL_TTL_MINUTES` / `DOWNLOAD_URL_TTL_MINUTES` | Signed URL lifetimes |
+| `ASSET_MAX_BYTES` | Maximum upload size (default 250 MB) |
+| `EMAIL_PROVIDER` | `console` or `resend` |
+| `EMAIL_API_KEY` / `EMAIL_FROM` | Resend credentials and sender |
+| `EMAIL_JOB_ATTEMPTS` / `EMAIL_JOB_BACKOFF_MS` | Worker retry policy |
+| `MONITORING_WEBHOOK_URL` | Optional sanitized error-forwarding hook |
 | `SEED_PASSWORD` | Development seed only; never set in production |
 
 Required values are validated at startup. The application fails fast with a readable error if
@@ -688,11 +901,28 @@ configuration is missing or malformed.
 
 ---
 
+## Documentation and operations
+
+- **API docs UI:** `/api/docs`
+- **OpenAPI JSON:** `/api/v1/openapi.json`
+- **Security review:** [`docs/security-review.md`](docs/security-review.md)
+- **Production runbook:** [`docs/production-runbook.md`](docs/production-runbook.md)
+- **Backup:** `infra/scripts/backup-postgres.sh`
+- **Restore:** `infra/scripts/restore-postgres.sh`
+- **Production images:** `infra/docker/api.Dockerfile`, `infra/docker/web.Dockerfile`
+- **Production Compose:** `docker-compose.prod.yml`
+- **Release/deploy workflow:** `.github/workflows/release.yml`
+
+The production stack expects an external S3-compatible bucket and secrets supplied through
+`.env.production`. The one-shot `migrate` service applies committed migrations before API and
+worker startup.
+
+---
+
 ## Next milestone
 
-**Milestone 4 — Assets and client approval.** It adds S3-compatible storage, signed upload intents,
-upload completion verification, asset metadata and authorized downloads, the client portal, review
-feedback, client approval and revision requests, and version-aware approval checks.
+No further milestone is required for the MVP scope. Follow the production runbook for launch,
+load testing, and operational hardening.
 
 ---
 

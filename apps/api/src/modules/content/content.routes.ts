@@ -11,6 +11,9 @@ import {
   postContentTransition,
   postProjectContent,
 } from "./content.controller.js";
+import { getContentAssets } from "../assets/asset.controller.js";
+import { getContentReviews, postContentReview } from "../reviews/review.controller.js";
+import { createInternalReviewSchema } from "../reviews/review.validation.js";
 import {
   contentListQuerySchema,
   contentParamsSchema,
@@ -41,6 +44,28 @@ contentRouter.get(
   requirePermission(PERMISSIONS.CONTENT_VIEW),
   validateParams(contentParamsSchema),
   getContentEvents,
+);
+
+contentRouter.get(
+  "/:contentId/assets",
+  requirePermission(PERMISSIONS.CONTENT_VIEW),
+  validateParams(contentParamsSchema),
+  getContentAssets,
+);
+
+contentRouter.get(
+  "/:contentId/reviews",
+  requirePermission(PERMISSIONS.CONTENT_VIEW),
+  validateParams(contentParamsSchema),
+  getContentReviews,
+);
+
+contentRouter.post(
+  "/:contentId/reviews",
+  requirePermission(PERMISSIONS.REVIEWS_INTERNAL),
+  validateParams(contentParamsSchema),
+  validateBody(createInternalReviewSchema),
+  postContentReview,
 );
 
 contentRouter.patch(

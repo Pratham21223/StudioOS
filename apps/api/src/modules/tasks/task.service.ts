@@ -1,9 +1,11 @@
 import type { Prisma } from "@prisma/client";
 import { PERMISSIONS, hasPermission } from "@studioos/shared";
 import { prisma } from "../../infrastructure/database/prisma.js";
+import { env } from "../../config/env.js";
 import type { TenantContext } from "../../shared/context.js";
 import { AppError } from "../../shared/errors.js";
 import { recordAudit } from "../audit/audit.service.js";
+import { notifyUser } from "../notifications/notification.service.js";
 import {
   assertProjectOpen,
   canViewAllProjects,
@@ -150,6 +152,18 @@ export async function createTask(tenant: TenantContext, actorId: string, input: 
       },
     });
 
+    if (task.assigneeId && task.assigneeId !== actorId) {
+      await notifyUser(tx, {
+        organizationId: tenant.organizationId,
+        userId: task.assigneeId,
+        type: "TASK_ASSIGNED",
+        title: `Task assigned: ${task.title}`,
+        body: `${task.project.name} · ${task.priority.toLowerCase()} priority`,
+        payload: { taskId: task.id, projectId: task.projectId },
+        url: `${env.WEB_ORIGIN}/orgs/${tenant.organizationId}/tasks?projectId=${task.projectId}`,
+      });
+    }
+
     return presentTask(task);
   });
 }
@@ -207,6 +221,23 @@ export async function updateTask(
         dueDate: updated.dueDate?.toISOString().slice(0, 10) ?? null,
       },
     });
+
+    if (
+      input.assigneeId !== undefined &&
+      updated.assigneeId &&
+      updated.assigneeId !== existing.assigneeId &&
+      updated.assigneeId !== actorId
+    ) {
+      await notifyUser(tx, {
+        organizationId: tenant.organizationId,
+        userId: updated.assigneeId,
+        type: "TASK_ASSIGNED",
+        title: `Task assigned: ${updated.title}`,
+        body: `${updated.project.name} · ${updated.priority.toLowerCase()} priority`,
+        payload: { taskId: updated.id, projectId: updated.projectId },
+        url: `${env.WEB_ORIGIN}/orgs/${tenant.organizationId}/tasks?projectId=${updated.projectId}`,
+      });
+    }
 
     return presentTask(updated);
   });

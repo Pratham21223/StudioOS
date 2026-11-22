@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -9,9 +9,14 @@ import {
   Clock3,
   FolderKanban,
   History,
+  Download,
+  FileText,
+  MessageSquare,
+  Paperclip,
   Save,
   ShieldAlert,
   Sparkles,
+  Upload,
   UserRound,
 } from "lucide-react";
 import {
@@ -21,6 +26,7 @@ import {
   CONTENT_TYPE_LABELS,
   CONTENT_TYPES,
   PERMISSIONS,
+  REVIEW_DECISION_LABELS,
   canPerformContentTransition,
   hasPermission,
 } from "@studioos/shared";
@@ -42,19 +48,29 @@ import {
 import { ContentStatusBadge } from "../../components/status";
 import { api, getErrorMessage, getFieldErrors } from "../../lib/api";
 import type {
+  Asset,
   ContentItem,
   ContentStatus,
   ContentType,
   ProjectMember,
+  Review,
   WorkflowEvent,
 } from "../../lib/types";
-import { cn, formatDate, formatDateTime } from "../../lib/utils";
+import { cn, formatBytes, formatDate, formatDateTime } from "../../lib/utils";
 import { useActiveMembership } from "../organizations/useActiveMembership";
 
 type ContentResponse = { content: ContentItem };
 type EventResponse = { events: WorkflowEvent[] };
 type ProjectMemberResponse = { members: ProjectMember[] };
 type TransitionResponse = { content: ContentItem; event: WorkflowEvent };
+type AssetResponse = { assets: Asset[] };
+type ReviewResponse = { reviews: Review[] };
+type UploadIntentResponse = {
+  intent: {
+    uploadId: string;
+    upload: { url: string; method: string; headers: Record<string, string> };
+  };
+};
 
 const emptyForm = {
   title: "",
@@ -90,9 +106,15 @@ export function ContentDetailPage() {
   const canTransition = membership
     ? hasPermission(membership.role, PERMISSIONS.CONTENT_TRANSITION)
     : false;
+  const canReview = membership
+    ? hasPermission(membership.role, PERMISSIONS.REVIEWS_INTERNAL)
+    : false;
+  const canUpload = membership ? hasPermission(membership.role, PERMISSIONS.ASSETS_UPLOAD) : false;
 
   const [content, setContent] = useState<ContentItem | null>(null);
   const [events, setEvents] = useState<WorkflowEvent[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -105,6 +127,13 @@ export function ContentDetailPage() {
 
   const [note, setNote] = useState("");
   const [transitioningTo, setTransitioningTo] = useState<ContentStatus | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [reviewFeedback, setReviewFeedback] = useState("");
+  const [submittingReview, setReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     if (!organizationId || !contentId || !canViewContent) {
@@ -115,14 +144,22 @@ export function ContentDetailPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      const [contentResponse, eventResponse] = await Promise.all([
+      const [contentResponse, eventResponse, assetResponse, reviewResponse] = await Promise.all([
         api.get<ContentResponse>(`/organizations/${organizationId}/content-items/${contentId}`),
         api.get<EventResponse>(
           `/organizations/${organizationId}/content-items/${contentId}/events`,
         ),
+        api.get<AssetResponse>(
+          `/organizations/${organizationId}/content-items/${contentId}/assets`,
+        ),
+        api.get<ReviewResponse>(
+          `/organizations/${organizationId}/content-items/${contentId}/reviews`,
+        ),
       ]);
       setContent(contentResponse.content);
       setEvents(eventResponse.events);
+      setAssets(assetResponse.assets);
+      setReviews(reviewResponse.reviews);
       setForm({
         title: contentResponse.content.title,
         description: contentResponse.content.description ?? "",
@@ -236,6 +273,81 @@ export function ContentDetailPage() {
       setActionError(getErrorMessage(error));
     } finally {
       setTransitioningTo(null);
+    }
+  }
+
+  async function uploadFile(file: File) {
+    if (!organizationId || !content) return;
+    setUploading(true);
+    setUploadError(null);
+    setNotice(null);
+    try {
+      const intent = await api.post<UploadIntentResponse>(
+        `/organizations/${organizationId}/assets/upload-intents`,
+        {
+          projectId: content.project.id,
+          contentItemId: content.id,
+          originalFilename: file.name,
+          mimeType: file.type,
+          sizeBytes: file.size,
+        },
+      );
+      const upload = await fetch(intent.intent.upload.url, {
+        method: intent.intent.upload.method,
+        headers: intent.intent.upload.headers,
+        body: file,
+      });
+      if (!upload.ok) {
+        throw new Error(`Storage upload failed (${upload.status}). Try again.`);
+      }
+      const completed = await api.post<{ asset: Asset }>(
+        `/organizations/${organizationId}/assets/complete`,
+        { uploadId: intent.intent.uploadId },
+      );
+      setAssets((current) => [completed.asset, ...current]);
+      setNotice(`${completed.asset.originalFilename} uploaded.`);
+    } catch (error) {
+      setUploadError(getErrorMessage(error));
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function downloadAsset(asset: Asset, disposition: "attachment" | "inline") {
+    if (!organizationId) return;
+    setDownloadingId(asset.id);
+    setUploadError(null);
+    try {
+      const response = await api.post<{ url: string }>(
+        `/organizations/${organizationId}/assets/${asset.id}/download-url`,
+        { disposition },
+      );
+      window.open(response.url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      setUploadError(getErrorMessage(error));
+    } finally {
+      setDownloadingId(null);
+    }
+  }
+
+  async function submitReview(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!organizationId || !content) return;
+    setReviewSubmitting(true);
+    setReviewError(null);
+    setNotice(null);
+    try {
+      const response = await api.post<{ review: Review }>(
+        `/organizations/${organizationId}/content-items/${content.id}/reviews`,
+        { feedback: reviewFeedback },
+      );
+      setReviews((current) => [...current, response.review]);
+      setReviewFeedback("");
+      setNotice("Review feedback recorded.");
+    } catch (error) {
+      setReviewError(getErrorMessage(error));
+    } finally {
+      setReviewSubmitting(false);
     }
   }
 
@@ -627,6 +739,184 @@ export function ContentDetailPage() {
           </ol>
         )}
       </Card>
+
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+        <Card className="p-5">
+          <div className="flex items-center gap-2">
+            <Paperclip className="size-4 text-ink-400" aria-hidden="true" />
+            <h2 className="font-display text-xl tracking-tight text-ink-900">Assets</h2>
+            <Badge tone="neutral">{assets.length}</Badge>
+          </div>
+          <p className="mt-1 text-xs leading-relaxed text-ink-500">
+            Files upload directly to object storage. Downloads use short-lived signed links.
+          </p>
+
+          {uploadError ? (
+            <div className="mt-3">
+              <Alert tone="error">{uploadError}</Alert>
+            </div>
+          ) : null}
+
+          {canUpload && !projectCompleted ? (
+            <div className="mt-4 rounded-lg border border-dashed border-cream-300 bg-cream-50/60 p-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="sr-only"
+                accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.md,.xls,.xlsx"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void uploadFile(file);
+                  event.target.value = "";
+                }}
+              />
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-medium text-ink-800">
+                    Upload a deliverable or reference
+                  </p>
+                  <p className="text-[11px] text-ink-500">
+                    Images, video, audio, PDF, and office documents.
+                  </p>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                  icon={<Upload className="size-3.5" />}
+                >
+                  Choose file
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
+          {assets.length === 0 ? (
+            <p className="mt-4 text-sm text-ink-500">No files uploaded yet.</p>
+          ) : (
+            <ul className="mt-4 divide-y divide-cream-200">
+              {assets.map((asset) => (
+                <li key={asset.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-cream-100 text-ink-500">
+                    <FileText className="size-4" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-ink-900">
+                      {asset.originalFilename}
+                    </p>
+                    <p className="text-[11px] text-ink-500">
+                      {formatBytes(asset.sizeBytes)} ·{" "}
+                      {asset.uploadedBy?.name ?? "Unknown uploader"} · {formatDate(asset.createdAt)}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    {/^(image|video|audio)\/|^application\/pdf$/.test(asset.mimeType) ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="px-2"
+                        disabled={downloadingId === asset.id}
+                        onClick={() => void downloadAsset(asset, "inline")}
+                        aria-label={`Preview ${asset.originalFilename}`}
+                      >
+                        Preview
+                      </Button>
+                    ) : null}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="px-2"
+                      loading={downloadingId === asset.id}
+                      onClick={() => void downloadAsset(asset, "attachment")}
+                      aria-label={`Download ${asset.originalFilename}`}
+                      icon={<Download className="size-3.5" />}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card className="p-5">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="size-4 text-ink-400" aria-hidden="true" />
+            <h2 className="font-display text-xl tracking-tight text-ink-900">Reviews</h2>
+            <Badge tone="neutral">{reviews.length}</Badge>
+          </div>
+          <p className="mt-1 text-xs leading-relaxed text-ink-500">
+            Internal feedback and client decisions are retained with the content version.
+          </p>
+
+          {reviewError ? (
+            <div className="mt-3">
+              <Alert tone="error">{reviewError}</Alert>
+            </div>
+          ) : null}
+
+          {canReview && !projectCompleted ? (
+            <form className="mt-4 space-y-2" onSubmit={submitReview}>
+              <FormField label="Add internal feedback" htmlFor="review-feedback">
+                <Textarea
+                  id="review-feedback"
+                  value={reviewFeedback}
+                  onChange={(event) => setReviewFeedback(event.target.value)}
+                  placeholder="Notes for the producer or editor on this version…"
+                  maxLength={10_000}
+                  className="min-h-20"
+                  required
+                />
+              </FormField>
+              <Button
+                type="submit"
+                variant="secondary"
+                size="sm"
+                loading={submittingReview}
+                disabled={!reviewFeedback.trim()}
+              >
+                Record feedback
+              </Button>
+            </form>
+          ) : null}
+
+          {reviews.length === 0 ? (
+            <p className="mt-4 text-sm text-ink-500">No review feedback yet.</p>
+          ) : (
+            <ul className="mt-4 space-y-3">
+              {reviews.map((review) => (
+                <li key={review.id} className="rounded-lg border border-cream-200 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Badge
+                      tone={
+                        review.decision === "CLIENT_APPROVED"
+                          ? "success"
+                          : review.decision === "CLIENT_REVISION_REQUESTED"
+                            ? "danger"
+                            : "warning"
+                      }
+                    >
+                      {REVIEW_DECISION_LABELS[review.decision]}
+                    </Badge>
+                    <span className="text-[10px] text-ink-400">
+                      v{review.contentVersion} · {formatDateTime(review.createdAt)}
+                    </span>
+                  </div>
+                  {review.feedback ? (
+                    <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-ink-600">
+                      {review.feedback}
+                    </p>
+                  ) : null}
+                  <p className="mt-2 text-[10px] text-ink-400">
+                    {review.reviewer?.name ?? "System"}
+                    {review.asset ? ` · ${review.asset.originalFilename}` : ""}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
     </div>
   );
 }

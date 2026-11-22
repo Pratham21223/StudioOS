@@ -73,11 +73,11 @@ export function AcceptInvitationPage() {
     setFieldErrors({});
 
     try {
-      const organizationId = await acceptInvitation({
+      const destination = await acceptInvitation({
         token,
         ...(user ? {} : { name, password }),
       });
-      navigate(organizationId ? `/orgs/${organizationId}` : "/no-workspace", { replace: true });
+      navigate(destination ?? "/no-workspace", { replace: true });
     } catch (acceptError) {
       setError(getErrorMessage(acceptError));
       setFieldErrors(getFieldErrors(acceptError));

@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import type { ErrorRequestHandler, RequestHandler } from "express";
 import { logger } from "../config/logger.js";
 import { AppError } from "../shared/errors.js";
+import { reportError } from "../shared/monitoring.js";
 import { redactSensitivePath } from "../shared/request-path.js";
 
 export const notFoundHandler: RequestHandler = (req, _res, next) => {
@@ -40,6 +41,13 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
         },
         "request.failed",
       );
+      reportError(error, {
+        source: "api",
+        requestId: req.requestId,
+        method: req.method,
+        path: redactSensitivePath(req.originalUrl.split("?")[0] ?? "/"),
+        statusCode: error.statusCode,
+      });
     } else if (error.statusCode === 401 && error.code === "INVALID_CREDENTIALS") {
       logger.warn(
         {
@@ -126,6 +134,13 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
     },
     "request.failed",
   );
+  reportError(error, {
+    source: "api",
+    requestId: req.requestId,
+    method: req.method,
+    path: redactSensitivePath(req.originalUrl.split("?")[0] ?? "/"),
+    statusCode: 500,
+  });
 
   res.status(500).json({
     error: {
