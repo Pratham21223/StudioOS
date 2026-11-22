@@ -76,7 +76,7 @@ export function RegisterPage() {
               id="organizationName"
               name="organizationName"
               autoComplete="organization"
-              placeholder="Northstar Studio"
+              placeholder="Your studio or agency"
               value={organizationName}
               onChange={(event) => setOrganizationName(event.target.value)}
               minLength={2}

@@ -229,7 +229,7 @@ export function ClientsPage() {
               >
                 <Input
                   id="client-name"
-                  placeholder="Northstar Audio"
+                  placeholder="Client or brand"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   maxLength={160}

@@ -1,8 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const PASSWORD = process.env.E2E_PASSWORD ?? "StudioOS-dev-2026!";
-const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? "admin@northstar.test";
-const CLIENT_EMAIL = process.env.E2E_CLIENT_EMAIL ?? "client@northstar.test";
+const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? "admin@studioos.test";
+const CLIENT_EMAIL = process.env.E2E_CLIENT_EMAIL ?? "client@studioos.test";
 
 async function login(page: Page, email: string) {
   await page.goto("/login");

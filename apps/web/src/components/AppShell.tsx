@@ -190,7 +190,7 @@ export function AppShell() {
               navigate(`/orgs/${event.target.value}`);
               setMobileOpen(false);
             }}
-            className="w-full cursor-pointer appearance-none rounded-lg border border-white/10 bg-white/[0.06] py-2.5 pl-3 pr-9 text-sm font-medium text-cream-50 outline-none transition hover:bg-white/[0.09] focus:border-accent-400/60 focus:ring-4 focus:ring-accent-500/10"
+            className="w-full cursor-pointer appearance-none rounded-lg border border-white/10 bg-white/[0.06] py-2.5 pl-3 pr-9 text-[13px] font-medium text-cream-50 outline-none transition hover:bg-white/[0.09] focus:border-accent-400/60 focus:ring-4 focus:ring-accent-500/10"
           >
             {memberships.map((item) => (
               <option

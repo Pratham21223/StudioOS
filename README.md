@@ -29,6 +29,7 @@ This repository currently implements **Milestone 0 (foundation)** through **Mile
 | In-app notifications, deadline reminders, role-aware dashboard | Complete (M5) |
 | OpenAPI contract, Swagger UI, automated browser smoke suite | Complete (M6) |
 | Public marketing landing page and auth entry points | Complete (M6) |
+| Figuring Out Media & Education demonstration dataset | Seeded (synthetic demo) |
 | Production images, compose stack, release workflow, backups, runbook | Complete (M6) |
 
 The backend tests enforce tenant isolation, client and project boundaries, workflow validity, task
@@ -135,7 +136,7 @@ request body and parameter.
    openssl rand -hex 32
    ```
 
-   Put the generated value into `SESSION_SECRET`. Set `SEED_PASSWORD` to a development-only
+   Put the generated value into `SESSION_SECRET`. Set `SEED_DEMO_PASSWORD` to a development-only
    password of at least 12 characters. Never commit `.env`.
 
 3. **Start PostgreSQL, Redis, and S3-compatible storage**
@@ -163,30 +164,61 @@ request body and parameter.
 
    The Prisma CLI loads the repository-root `.env` when run through the root scripts.
 
-5. **Seed development data (optional)**
+5. **Seed demonstration data (optional)**
 
    ```bash
    npm run db:seed
    ```
 
-   The seed is idempotent and refused when `NODE_ENV=production`. It creates the
-   **Northstar Studio** workspace, four internal users, one client contact, and a demo project.
-   All use the password stored in `SEED_PASSWORD`:
+   The seed is idempotent, refuses to run when `NODE_ENV=production`, and requires
+   `SEED_DEMO_PASSWORD` (12+ characters). It creates **Figuring Out Media & Education**
+   (`figuring-out-media`) with synthetic `.test` accounts:
 
-   | Access | Email |
-   |---|---|
-   | Admin | `admin@northstar.test` |
-   | Project Manager | `pm@northstar.test` |
-   | Producer | `producer@northstar.test` |
-   | Editor | `editor@northstar.test` |
-   | Client contact | `client@northstar.test` |
+   | Access | Name | Email |
+   |---|---|---|
+   | Admin | Demo Admin | `admin@studioos.test` |
+   | Project Manager | Demo Project Manager | `manager@studioos.test` |
+   | Producer | Demo Producer | `producer@studioos.test` |
+   | Editor | Demo Editor | `editor@studioos.test` |
+   | Client contact | Demo Client | `client@studioos.test` |
 
-   The client contact belongs to **Northstar Audio** through `ClientMembership` only; they are not
-   an internal organization member. The seed also creates the **Podcast Season 2** project with the
-   PM, Producer, and Editor assigned.
+   All accounts use the password in `SEED_DEMO_PASSWORD`. They are synthetic demo identities, not
+   real Figuring Out employees or client contacts. The client user has a `ClientMembership` for
+   **StudioOS Demo Client** and no internal organization membership.
 
-   Five content items span the workflow from `BRIEF` through `READY_TO_PUBLISH`, with matching
-   workflow history. Five tasks include overdue, in-progress, and completed examples.
+   The dataset includes:
+
+   - A completed **Flagship Podcast: Public Episode Archive** with six real public episode records
+     (FO586–FO591), guest names, categories, publication dates, descriptions, and official source
+     URLs. These are historical imports, not upcoming production or client approvals.
+   - Two active synthetic projects: **Weekly Podcast Production Board [DEMO]** and
+     **Cross-platform Content Distribution [DEMO]**.
+   - Seven weekly-production deliverables across every workflow stage, plus nine distribution
+     deliverables.
+   - 96 structured tasks across research, guest coordination, production, post-production,
+     distribution, multilingual delivery, and experimentation. Dates are relative to the seed run
+     date in UTC.
+   - Seeded internal feedback, a pending client review with revision history, and an approved
+     version history for the demo client portal.
+   - Synthetic notifications and audit/workflow activity. No fake assets or live campaign metrics
+     are created.
+   - Organization profile, social-channel snapshots, content categories, production formats, and
+     the 18 publicly listed partner references stored in `seed.reference_data` audit metadata.
+
+   The six archive episodes and 18 partner references are public reference data with source URLs.
+   Everything under `[DEMO]` and **StudioOS Demo Client** is synthetic. Partner references are not
+   inserted as active client accounts.
+
+   Asset records are intentionally not seeded because they require real objects in configured
+   storage. The asset library shows its empty state until a file is uploaded.
+
+   Date strategy: active demo project deadlines and task due dates are generated relative to the UTC
+   day the seed runs. Re-running the seed restores the demo workflow and pushes the workload forward
+   without creating duplicates.
+
+   Expected seed counts: 1 organization, 5 synthetic users, 2 clients, 3 projects, 22 content items,
+   96 tasks, 9 reviews, 10 notifications, 83 workflow events, and 18 partner references stored in
+   metadata. Assets remain empty.
 
 6. **Run the API, web app, and worker**
 
@@ -910,7 +942,7 @@ See `.env.example` for the full list. Highlights:
 | `MONITORING_WEBHOOK_URL` | Optional sanitized error-forwarding hook |
 | `API_DOCS_ENABLED` | Expose `/api/docs` and the OpenAPI JSON (default off) |
 | `DEV_LINKS_ENABLED` | Return invite/reset links for local development only |
-| `SEED_PASSWORD` | Development seed only; never set in production |
+| `SEED_DEMO_PASSWORD` | Development seed only; never set in production |
 
 Required values are validated at startup. The application fails fast with a readable error if
 configuration is missing or malformed.
@@ -925,6 +957,7 @@ API docs are disabled unless `API_DOCS_ENABLED=true`; the production example kee
 - **OpenAPI JSON:** `/api/v1/openapi.json` (when enabled)
 - **Security review:** [`docs/security-review.md`](docs/security-review.md)
 - **Production runbook:** [`docs/production-runbook.md`](docs/production-runbook.md)
+- **Figuring Out demonstration seed:** [`docs/seed-data.md`](docs/seed-data.md)
 - **Performance smoke:** [`docs/performance.md`](docs/performance.md)
 - **Backup:** `infra/scripts/backup-postgres.sh`
 - **Restore:** `infra/scripts/restore-postgres.sh`
