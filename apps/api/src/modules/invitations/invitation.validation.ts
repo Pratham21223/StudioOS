@@ -9,6 +9,12 @@ export const createInvitationSchema = z
   })
   .strict();
 
+export const createClientInvitationSchema = z
+  .object({
+    email: emailSchema,
+  })
+  .strict();
+
 export const acceptInvitationSchema = z
   .object({
     token: z.string().min(20).max(256),
@@ -30,4 +36,5 @@ export const invitationTokenParamsSchema = z.object({
 });
 
 export type CreateInvitationInput = z.infer<typeof createInvitationSchema>;
+export type CreateClientInvitationInput = z.infer<typeof createClientInvitationSchema>;
 export type AcceptInvitationInput = z.infer<typeof acceptInvitationSchema>;

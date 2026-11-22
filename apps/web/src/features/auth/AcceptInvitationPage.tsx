@@ -152,8 +152,17 @@ export function AcceptInvitationPage() {
     },
   };
 
-  if (preview.status !== "PENDING") {
-    const copy = statusCopy[preview.status];
+  if (
+    preview.status !== "PENDING" ||
+    (preview.type === "CLIENT" && preview.client?.status !== "ACTIVE")
+  ) {
+    const copy =
+      preview.status === "PENDING"
+        ? {
+            title: "This client portal is unavailable.",
+            body: "This client is no longer accepting portal access. Ask a workspace admin for help.",
+          }
+        : statusCopy[preview.status];
     return (
       <AuthLayout>
         <div className="space-y-5">
@@ -175,20 +184,29 @@ export function AcceptInvitationPage() {
   }
 
   const emailMismatch = Boolean(user && user.email.toLowerCase() !== preview.email.toLowerCase());
+  const isClientInvitation = preview.type === "CLIENT";
+  const audienceLabel = isClientInvitation
+    ? "Client contact"
+    : preview.role
+      ? roleLabel(preview.role)
+      : "Workspace member";
 
   return (
     <AuthLayout>
       <div className="space-y-6">
         <div className="space-y-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent-600">
-            Workspace invitation
+            {isClientInvitation ? "Client portal invitation" : "Workspace invitation"}
           </p>
           <h1 className="font-display text-4xl leading-tight tracking-tight text-ink-900">
-            Join {preview.organization.name}.
+            {isClientInvitation
+              ? `Join ${preview.client?.name ?? preview.organization.name}.`
+              : `Join ${preview.organization.name}.`}
           </h1>
           <p className="text-sm leading-relaxed text-ink-500">
-            You&apos;ve been invited to collaborate in StudioOS. Accept the invitation to open the
-            workspace.
+            {isClientInvitation
+              ? "You've been invited to review and approve content for this client. Accept the invitation to connect your client portal access."
+              : "You've been invited to collaborate in StudioOS. Accept the invitation to open the workspace."}
           </p>
         </div>
 
@@ -198,13 +216,13 @@ export function AcceptInvitationPage() {
               <Mail className="size-4 text-ink-400" aria-hidden="true" />
               {preview.email}
             </div>
-            <Badge tone="accent">{roleLabel(preview.role)}</Badge>
+            <Badge tone="accent">{audienceLabel}</Badge>
           </div>
           <div className="flex items-center gap-2 text-sm text-ink-500">
             <Users className="size-4 text-ink-400" aria-hidden="true" />
-            {preview.organization.name}
+            {preview.client?.name ?? preview.organization.name}
             <span className="text-ink-300">/</span>
-            <span>{preview.organization.slug}</span>
+            <span>{preview.organization.name}</span>
           </div>
           <div className="flex items-center gap-2 text-sm text-ink-500">
             <CalendarClock className="size-4 text-ink-400" aria-hidden="true" />

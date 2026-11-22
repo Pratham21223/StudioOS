@@ -3,6 +3,8 @@ import { prisma } from "../src/infrastructure/database/prisma.js";
 import {
   PASSWORD,
   createApiClient,
+  createClientRecord,
+  createProjectRecord,
   inviteMember,
   resetDatabase,
   setupOrganization,
@@ -50,6 +52,18 @@ describe("audit trail", () => {
     });
     expect(rename.status).toBe(200);
 
+    const client = await createClientRecord(alpha.client, alpha.organization.id, {
+      name: "Audited Client",
+    });
+    const project = await createProjectRecord(alpha.client, alpha.organization.id, client.id, {
+      name: "Audited Project",
+    });
+    const addMember = await alpha.client.post(
+      `/api/v1/organizations/${alpha.organization.id}/projects/${project.id}/members`,
+      { userIds: [accepted.body.user.id] },
+    );
+    expect(addMember.status).toBe(200);
+
     const actions = await prisma.auditLog.findMany({
       where: { organizationId: alpha.organization.id },
       orderBy: { createdAt: "asc" },
@@ -61,6 +75,9 @@ describe("audit trail", () => {
     expect(actionNames).toContain("invitation.accepted");
     expect(actionNames).toContain("membership.role_changed");
     expect(actionNames).toContain("organization.updated");
+    expect(actionNames).toContain("client.created");
+    expect(actionNames).toContain("project.created");
+    expect(actionNames).toContain("project.members_added");
 
     const acceptedEntry = actions.find((entry) => entry.action === "invitation.accepted");
     expect(acceptedEntry?.actorId).toBe(accepted.body.user.id);

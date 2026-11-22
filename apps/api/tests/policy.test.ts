@@ -18,8 +18,18 @@ describe("centralized role policy", () => {
 
   it("allows project managers to view members and manage delivery", () => {
     expect(hasPermission("PROJECT_MANAGER", PERMISSIONS.MEMBERS_VIEW)).toBe(true);
+    expect(hasPermission("PROJECT_MANAGER", PERMISSIONS.CLIENTS_VIEW)).toBe(true);
     expect(hasPermission("PROJECT_MANAGER", PERMISSIONS.PROJECTS_MANAGE)).toBe(true);
     expect(hasPermission("PROJECT_MANAGER", PERMISSIONS.CLIENTS_MANAGE)).toBe(true);
+  });
+
+  it("keeps producers and editors out of the client directory and project management", () => {
+    for (const role of ["PRODUCER", "EDITOR"] as const) {
+      expect(hasPermission(role, PERMISSIONS.CLIENTS_VIEW)).toBe(false);
+      expect(hasPermission(role, PERMISSIONS.CLIENTS_MANAGE)).toBe(false);
+      expect(hasPermission(role, PERMISSIONS.PROJECTS_MANAGE)).toBe(false);
+      expect(hasPermission(role, PERMISSIONS.PROJECTS_VIEW)).toBe(true);
+    }
   });
 
   it("keeps editors out of content creation and workflow transitions", () => {

@@ -11,6 +11,7 @@ import { api, getErrorMessage, isApiError } from "../lib/api";
 import type {
   AcceptInvitationResponse,
   AuthResponse,
+  ClientMembershipSummary,
   MeResponse,
   Membership,
   User,
@@ -37,6 +38,7 @@ export type AcceptInvitationInput = {
 type AuthContextValue = {
   user: User | null;
   memberships: Membership[];
+  clientMemberships: ClientMembershipSummary[];
   loading: boolean;
   bootstrapError: string | null;
   retryBootstrap: () => Promise<void>;
@@ -52,6 +54,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [memberships, setMemberships] = useState<Membership[]>([]);
+  const [clientMemberships, setClientMemberships] = useState<ClientMembershipSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
 
@@ -63,10 +66,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await api.get<MeResponse>("/auth/me");
       setUser(response.user);
       setMemberships(response.memberships);
+      setClientMemberships(response.clientMemberships);
     } catch (error) {
       if (isApiError(error) && error.status === 401) {
         setUser(null);
         setMemberships([]);
+        setClientMemberships([]);
       } else {
         setBootstrapError(getErrorMessage(error));
       }
@@ -83,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     function handleUnauthorized() {
       setUser(null);
       setMemberships([]);
+      setClientMemberships([]);
     }
     window.addEventListener("studioos:unauthorized", handleUnauthorized);
     return () => {
@@ -94,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await api.post<AuthResponse>("/auth/login", input);
     setUser(response.user);
     setMemberships(response.memberships);
+    setClientMemberships(response.clientMemberships);
     return response.memberships[0]?.organization.id ?? null;
   }, []);
 
@@ -101,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await api.post<AuthResponse>("/auth/register", input);
     setUser(response.user);
     setMemberships(response.memberships);
+    setClientMemberships(response.clientMemberships);
     return response.memberships[0]?.organization.id ?? null;
   }, []);
 
@@ -109,6 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const me = await api.get<MeResponse>("/auth/me");
     setUser(me.user);
     setMemberships(me.memberships);
+    setClientMemberships(me.clientMemberships);
     return response.memberships[0]?.organization.id ?? me.memberships[0]?.organization.id ?? null;
   }, []);
 
@@ -116,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await api.post<void>("/auth/logout");
     setUser(null);
     setMemberships([]);
+    setClientMemberships([]);
     api.clearCsrf();
     try {
       await api.initCsrf();
@@ -128,12 +138,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await api.get<MeResponse>("/auth/me");
     setUser(response.user);
     setMemberships(response.memberships);
+    setClientMemberships(response.clientMemberships);
   }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
       memberships,
+      clientMemberships,
       loading,
       bootstrapError,
       retryBootstrap: bootstrap,
@@ -146,6 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [
       user,
       memberships,
+      clientMemberships,
       loading,
       bootstrapError,
       bootstrap,

@@ -3,9 +3,9 @@
 StudioOS is a multi-tenant content production and operations platform for media agencies. It
 brings clients, projects, deliverables, tasks, assets, reviews, and approvals into one workspace.
 
-This repository currently implements **Milestone 0 (foundation)** and **Milestone 1 (database,
-authentication, and tenancy)** from the product specification. Later milestones build on this
-secure foundation rather than replacing it.
+This repository currently implements **Milestone 0 (foundation)**, **Milestone 1 (database,
+authentication, and tenancy)**, and **Milestone 2 (clients and projects)** from the product
+specification. Later milestones build on this secure foundation rather than replacing it.
 
 ---
 
@@ -14,17 +14,19 @@ secure foundation rather than replacing it.
 | Area | Status |
 |---|---|
 | Monorepo, TypeScript, linting, CI, Docker Compose | Complete (M0) |
-| PostgreSQL schema and migrations | Complete (M1) |
+| PostgreSQL schema and migrations | Complete (M1, M2) |
 | Registration, login, logout, sessions | Complete (M1) |
 | Password reset with hashed single-use tokens | Complete (M1) |
 | Organizations, memberships, centralized RBAC | Complete (M1) |
 | Internal invitations with hashed single-use tokens | Complete (M1) |
-| Tenant-isolation and authorization tests | Complete (M1) |
+| Tenant-isolation and authorization tests | Complete (M1, M2) |
 | React workspace: auth, overview, members, settings | Complete (M1) |
-| Email delivery, clients, projects, content workflow, assets, approvals | Not started (M2–M5) |
+| Clients, client portal invitations, project CRUD, project teams | Complete (M2) |
+| Client/project UI: directory, client detail, project workspace | Complete (M2) |
+| Email delivery, content workflow, assets, client review, notifications | Not started (M3–M5) |
 
-The backend tests enforce tenant isolation and server-side role authorization before feature
-modules are added.
+The backend tests enforce tenant isolation, client boundaries, project scoping, and server-side
+role authorization before each feature module is added.
 
 ---
 
@@ -60,7 +62,7 @@ studioos/
 │   │   │   ├── config/          # env validation + structured logger
 │   │   │   ├── infrastructure/  # Prisma client
 │   │   │   ├── middleware/      # auth, tenant, CSRF, rate limits, errors
-│   │   │   ├── modules/         # auth, users, organizations, memberships, invitations, audit
+│   │   │   ├── modules/         # auth, organizations, clients, projects, invitations, audit
 │   │   │   ├── shared/          # errors, validation, crypto, presenters
 │   │   │   ├── app.ts
 │   │   │   └── server.ts
@@ -144,18 +146,22 @@ request body and parameter.
    ```
 
    The seed is idempotent and refused when `NODE_ENV=production`. It creates the
-   **Northstar Studio** workspace and four internal users. All use the password stored in
-   `SEED_PASSWORD`:
+   **Northstar Studio** workspace, four internal users, one client contact, and a demo project.
+   All use the password stored in `SEED_PASSWORD`:
 
-   | Role | Email |
+   | Access | Email |
    |---|---|
    | Admin | `admin@northstar.test` |
    | Project Manager | `pm@northstar.test` |
    | Producer | `producer@northstar.test` |
    | Editor | `editor@northstar.test` |
+   | Client contact | `client@northstar.test` |
 
-   Clients, projects, content items, and tasks will join the seed as those modules land in later
-   milestones.
+   The client contact belongs to **Northstar Audio** through `ClientMembership` only; they are not
+   an internal organization member. The seed also creates the **Podcast Season 2** project with the
+   PM, Producer, and Editor assigned.
+
+   Content items and tasks will join the seed as those modules land in later milestones.
 
 6. **Run the API and web app**
 
@@ -211,7 +217,7 @@ npm run db:migrate
 
 ---
 
-## API implemented in Milestone 1
+## API implemented in Milestones 1–2
 
 All routes are under `/api/v1`. Cookie-authenticated unsafe requests require a matching
 `X-CSRF-Token` header and `studioos_csrf` cookie. The web client requests a token from
@@ -225,7 +231,7 @@ All routes are under `/api/v1`. Cookie-authenticated unsafe requests require a m
 | POST | `/auth/register` | Atomically creates user, organization, admin membership, session |
 | POST | `/auth/login` | Rotates the session; generic invalid-credentials response |
 | POST | `/auth/logout` | Deletes the current session and clears cookies |
-| GET | `/auth/me` | Current user plus active memberships |
+| GET | `/auth/me` | Current user, internal memberships, and client portal memberships |
 | POST | `/auth/password/forgot` | Always returns success semantics; dev response includes `resetUrl` |
 | POST | `/auth/password/reset` | Single-use token; revokes all sessions on success |
 
@@ -241,12 +247,45 @@ All routes are under `/api/v1`. Cookie-authenticated unsafe requests require a m
 | GET | `/organizations/:orgId/invitations` |
 | POST | `/organizations/:orgId/invitations` |
 
+### Clients and client portal access
+
+| Method | Endpoint |
+|---|---|
+| GET | `/organizations/:orgId/clients` |
+| POST | `/organizations/:orgId/clients` |
+| GET | `/organizations/:orgId/clients/:clientId` |
+| PATCH | `/organizations/:orgId/clients/:clientId` |
+| GET | `/organizations/:orgId/clients/:clientId/members` |
+| PATCH | `/organizations/:orgId/clients/:clientId/members/:membershipId` |
+| GET | `/organizations/:orgId/clients/:clientId/invitations` |
+| POST | `/organizations/:orgId/clients/:clientId/invitations` |
+
+Client invitations create a `ClientMembership`, never an internal `OrganizationMembership`.
+Client users have no access to internal organization routes. The client portal UI itself is
+Milestone 4.
+
+### Projects and project teams
+
+| Method | Endpoint |
+|---|---|
+| GET | `/organizations/:orgId/projects` |
+| POST | `/organizations/:orgId/projects` |
+| GET | `/organizations/:orgId/projects/:projectId` |
+| PATCH | `/organizations/:orgId/projects/:projectId` |
+| GET | `/organizations/:orgId/projects/:projectId/members` |
+| POST | `/organizations/:orgId/projects/:projectId/members` |
+| DELETE | `/organizations/:orgId/projects/:projectId/members/:userId` |
+
+Admins and project managers see all organization projects. Producers and editors only see projects
+where they hold a `ProjectMembership`. Project creation, updates, and team assignment require
+`PROJECTS_MANAGE`.
+
 ### Invitations
 
 | Method | Endpoint |
 |---|---|
 | GET | `/invitations/:token` (public preview) |
-| POST | `/invitations/accept` (authenticated or new account) |
+| POST | `/invitations/accept` (internal or client invitation; authenticated or new account) |
 
 ### Health
 
@@ -312,6 +351,26 @@ Every response includes an `X-Request-Id` header. Request IDs appear in structur
 - `SESSION_SECRET` keys session, invitation, and password-reset token hashes. Rotate it only
   deliberately: rotation invalidates every active session and outstanding link.
 
+### Clients and project access
+
+- Client profiles, portal contacts, and client invitations are restricted to admins and project
+  managers. Producers and editors cannot enumerate the client directory.
+- `ClientMembership` is a separate boundary from `OrganizationMembership`. A client contact has
+  no internal workspace access unless they independently hold an organization membership.
+- Client invitations create/reactivate a `ClientMembership` only. They are blocked for archived
+  clients, and deactivated client memberships disappear from `/auth/me` immediately.
+- Projects reference their client through a composite foreign key
+  `(client_id, organization_id) → clients(id, organization_id)`, so a project cannot point at
+  another organization's client even through direct database access.
+- Project memberships use a composite foreign key to the project and are validated to reference
+  active internal members of the same organization.
+- Admins and project managers can view every organization project. Producers and editors only see
+  projects where they hold a `ProjectMembership`; guessing a project ID returns `404`.
+- Project creation/updates/status changes and team assignment require `PROJECTS_MANAGE`.
+- Completed projects cannot be reopened, and PostgreSQL enforces `start_date <= deadline` when
+  both dates are present.
+- Project and client changes are written to the audit log in the same transaction.
+
 ### Invitations
 
 - 256-bit random tokens; only HMAC hashes are stored.
@@ -340,12 +399,19 @@ Every response includes an `X-Request-Id` header. Request IDs appear in structur
   move the limiter to Redis.
 - Expired session rows are rejected on use and removed lazily; a scheduled cleanup job should be
   added with the Milestone 5 worker.
-- Browser end-to-end tests are not automated yet (Milestone 6); the Milestone 1 flows were exercised
-  manually with headless Chrome in addition to the API integration suite.
-- Client users, client memberships, and the client portal arrive in Milestones 2 and 4.
-- Clients, projects, content, tasks, assets, reviews, and notification modules are not yet built.
-- OpenAPI/Swagger docs, production Docker images, and deployment workflows are Milestone 6 items.
+- Browser end-to-end tests are not automated yet (Milestone 6); the Milestone 1 and 2 flows were
+  exercised manually with headless Chrome in addition to the API integration suite.
+- The client portal UI and client-visible project/deliverable APIs arrive in Milestone 4. Client
+  accounts created now see an access notice listing their client memberships.
+- Content items, the fixed workflow, tasks, assets, reviews, notifications, and approval flows are
+  not yet built.
+- Client and project lists are not paginated yet; this is safe for the initial team size but should
+  be addressed before large tenants onboard.
 - The dashboard is a foundation overview; role-aware operational metrics arrive in Milestone 5.
+- Production project team assignment is limited to admins and project managers. The specification's
+  "limited" producer assignment capability is intentionally deferred until content ownership rules
+  make the limit meaningful.
+- OpenAPI/Swagger docs, production Docker images, and deployment workflows are Milestone 6 items.
 - `npm audit` reports advisories inside Prisma's development CLI (`@prisma/config`, `effect`).
   They are build-tool dependencies, not part of the running API. Revisit when upgrading Prisma.
 
@@ -375,14 +441,17 @@ Every response includes an `X-Request-Id` header. Request IDs appear in structur
 
 ---
 
-## Data model (Milestone 1)
+## Data model (Milestones 1–2)
 
 ```text
 User ──< OrganizationMembership >── Organization
  │                                     │
- ├──< Session                          ├──< Invitation
- ├──< PasswordResetToken               └──< AuditLog
- └──< AuditLog
+ ├──< Session                          ├──< Client ──< ClientMembership >── User
+ ├──< PasswordResetToken               │        │
+ ├──< AuditLog                          │        └──< Project ──< ProjectMembership >── User
+ │                                     │                 │
+ ├──< ClientMembership                 └──< Invitation (INTERNAL or CLIENT)
+ └──< ProjectMembership
 ```
 
 Key constraints:
@@ -390,13 +459,19 @@ Key constraints:
 - `users.email` is unique and normalized to lowercase.
 - `organizations.slug` is unique.
 - `organization_memberships` is unique on `(organization_id, user_id)`.
+- `client_memberships` is unique on `(client_id, user_id)`.
+- `project_memberships` is unique on `(project_id, user_id)`.
+- `clients` is unique on `(id, organization_id)`, enabling composite tenant foreign keys.
+- Projects, client memberships, and client invitations use composite foreign keys to guarantee they
+  share the client's organization.
+- `invitations` enforces `INTERNAL` (role, no client) or `CLIENT` (client, no role) shapes with a
+  PostgreSQL check constraint.
 - Tenant-scoped indexes begin with `organization_id` where applicable.
 - All child records cascade appropriately; audit actors are set to null if a user is deleted.
 - Status/role fields use PostgreSQL enums.
 
-Future tenant-owned tables (clients, projects, content, tasks, assets, reviews) will carry
-`organization_id` and composite foreign keys/indexes. Cross-organization relationships must be
-rejected in the database where practical, in addition to service checks.
+Future tenant-owned tables (content, tasks, assets, reviews) will follow the same composite
+tenant-scoping pattern.
 
 ---
 
@@ -424,6 +499,17 @@ The current suite covers:
 - Deactivated users and expired sessions.
 - Invitation hashing, preview, acceptance, single-use enforcement, reissue, expiry, email matching,
   sign-in requirements, and deactivated-membership reactivation.
+- Client CRUD, tenant scoping, archived-client rules, and admin/project-manager-only access.
+- Client portal invitations creating `ClientMembership` only, with no internal workspace access.
+- Client contact deactivation/reactivation, multiple client memberships, and active-client filtering.
+- Project creation against same-tenant active clients, date validation, and cross-tenant denial.
+- Producer/editor project visibility scoped to project membership.
+- Project team assignment: active-member validation, duplicate idempotency, removal, and rejection of
+  client users, deactivated members, and cross-tenant users.
+- Project pause/resume/completion, terminal completed state, filters, and manager-only updates.
+- Database-level tenant integrity: composite project/client/membership/invitation foreign keys,
+  date ordering, and invitation type-shape constraints.
+- Client, project, membership, and settings audit entries.
 - Health/readiness endpoints, request IDs, stable error envelopes, secure headers, and the CORS
   allowlist.
 
@@ -446,7 +532,7 @@ Tests require the Docker Postgres service. They do not require Redis.
 
 ```bash
 # After editing apps/api/prisma/schema.prisma:
-npm run db:migrate -- --name add_clients_and_projects
+npm run db:migrate -- --name your_migration_name
 
 # Review the generated SQL in apps/api/prisma/migrations/
 # Commit schema + migration together.
@@ -454,6 +540,9 @@ npm run db:migrate -- --name add_clients_and_projects
 # In staging/production:
 npm run db:deploy
 ```
+
+Raw PostgreSQL constraints that Prisma cannot express live in their own migration files under
+`apps/api/prisma/migrations/` (for example, the invitation type-shape and project date checks).
 
 Never edit an already-applied migration. Add a new one.
 
@@ -484,10 +573,9 @@ configuration is missing or malformed.
 
 ## Next milestone
 
-**Milestone 2 — Clients and projects.** It adds client profiles, client invitations/memberships,
-project CRUD, project team memberships, client/project authorization, and the internal client and
-project UI. It will extend the schema with tenant-composite constraints and add isolation tests for
-client users before the content workflow is built.
+**Milestone 3 — Content and task workflows.** It adds content items with the fixed state machine,
+workflow event history, task management and assignment, the Kanban board, task filters, overdue
+views, and transactional workflow-transition tests.
 
 ---
 

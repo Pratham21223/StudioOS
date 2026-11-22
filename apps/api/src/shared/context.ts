@@ -16,6 +16,7 @@ export type AuthContext = {
 export type TenantContext = {
   organizationId: string;
   membershipId: string;
+  userId: string;
   role: OrgRole;
   organization: {
     id: string;

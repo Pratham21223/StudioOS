@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
+  Building2,
   ChevronDown,
   FolderKanban,
   LayoutDashboard,
@@ -18,9 +19,9 @@ import { cn, roleLabel } from "../lib/utils";
 import { useActiveMembership } from "../features/organizations/useActiveMembership";
 
 const roadmap = [
-  { label: "Clients & projects", milestone: "M2" },
   { label: "Content workflow", milestone: "M3" },
   { label: "Assets & approvals", milestone: "M4" },
+  { label: "Notifications & dashboard", milestone: "M5" },
 ];
 
 export function AppShell() {
@@ -60,6 +61,8 @@ export function AppShell() {
   }
 
   const canViewMembers = hasPermission(membership.role, PERMISSIONS.MEMBERS_VIEW);
+  const canViewClients = hasPermission(membership.role, PERMISSIONS.CLIENTS_VIEW);
+  const canViewProjects = hasPermission(membership.role, PERMISSIONS.PROJECTS_VIEW);
   const canManageSettings = hasPermission(membership.role, PERMISSIONS.ORGANIZATION_MANAGE);
 
   const navigation = [
@@ -69,6 +72,20 @@ export function AppShell() {
       icon: LayoutDashboard,
       end: true,
       visible: true,
+    },
+    {
+      to: `/orgs/${membership.organization.id}/clients`,
+      label: "Clients",
+      icon: Building2,
+      end: false,
+      visible: canViewClients,
+    },
+    {
+      to: `/orgs/${membership.organization.id}/projects`,
+      label: "Projects",
+      icon: FolderKanban,
+      end: false,
+      visible: canViewProjects,
     },
     {
       to: `/orgs/${membership.organization.id}/members`,
@@ -269,7 +286,7 @@ export function AppShell() {
         </main>
 
         <footer className="mx-auto flex w-full max-w-6xl flex-col gap-2 border-t border-cream-200 px-4 py-6 text-[11px] text-ink-400 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <span>StudioOS · Milestone 1 · Secure multi-tenant foundation</span>
+          <span>StudioOS · Milestone 2 · Clients, projects, and project teams</span>
           <span>Session-based auth · Server-enforced permissions</span>
         </footer>
       </div>

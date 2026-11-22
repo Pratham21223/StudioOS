@@ -1,6 +1,6 @@
-// StudioOS initial schema — Milestone 1
-// Shared-schema multi-tenancy: every future tenant-owned model carries
-// organizationId, and composite indexes begin with organization_id.
+// StudioOS schema — Milestone 2
+// Shared-schema multi-tenancy: tenant-owned models carry organizationId and
+// related records share composite foreign keys where practical.
 
 generator client {
   provider = "prisma-client-js"
@@ -33,6 +33,27 @@ enum MembershipStatus {
   DEACTIVATED
 }
 
+enum ClientStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum ClientMembershipStatus {
+  ACTIVE
+  DEACTIVATED
+}
+
+enum ProjectStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+enum InvitationType {
+  INTERNAL
+  CLIENT
+}
+
 model User {
   id           String     @id @default(uuid()) @db.Uuid
   name         String     @db.VarChar(120)
@@ -43,6 +64,8 @@ model User {
   updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   memberships         OrganizationMembership[]
+  clientMemberships   ClientMembership[]
+  projectMemberships  ProjectMembership[]
   sessions            Session[]
   invitationsSent     Invitation[]             @relation("InvitationInvitedBy")
   passwordResetTokens PasswordResetToken[]
@@ -59,9 +82,13 @@ model Organization {
   createdAt DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  memberships OrganizationMembership[]
-  invitations Invitation[]
-  auditLogs   AuditLog[]
+  memberships        OrganizationMembership[]
+  clients            Client[]
+  clientMemberships  ClientMembership[]
+  projects           Project[]
+  projectMemberships ProjectMembership[]
+  invitations        Invitation[]
+  auditLogs          AuditLog[]
 
   @@map("organizations")
 }
@@ -84,6 +111,90 @@ model OrganizationMembership {
   @@map("organization_memberships")
 }
 
+model Client {
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @map("organization_id") @db.Uuid
+  name            String       @db.VarChar(160)
+  contactName     String?      @map("contact_name") @db.VarChar(120)
+  email           String?      @db.VarChar(320)
+  phone           String?      @db.VarChar(40)
+  website         String?      @db.VarChar(255)
+  notes           String?      @db.Text
+  brandGuidelines String?      @map("brand_guidelines") @db.Text
+  status          ClientStatus @default(ACTIVE)
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  memberships  ClientMembership[]
+  projects     Project[]
+  invitations  Invitation[]
+
+  @@unique([id, organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, name])
+  @@map("clients")
+}
+
+model ClientMembership {
+  id             String                 @id @default(uuid()) @db.Uuid
+  organizationId String                 @map("organization_id") @db.Uuid
+  clientId       String                 @map("client_id") @db.Uuid
+  userId         String                 @map("user_id") @db.Uuid
+  status         ClientMembershipStatus @default(ACTIVE)
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client       Client       @relation(fields: [clientId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, userId])
+  @@index([organizationId, userId, status])
+  @@index([clientId, status])
+  @@map("client_memberships")
+}
+
+model Project {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String        @map("organization_id") @db.Uuid
+  clientId       String        @map("client_id") @db.Uuid
+  name           String        @db.VarChar(160)
+  description    String?       @db.Text
+  status         ProjectStatus @default(ACTIVE)
+  startDate      DateTime?     @map("start_date") @db.Date
+  deadline       DateTime?     @db.Date
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client       Client              @relation(fields: [clientId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  memberships  ProjectMembership[]
+
+  @@unique([id, organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, deadline])
+  @@index([organizationId, clientId])
+  @@map("projects")
+}
+
+model ProjectMembership {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  projectId      String   @map("project_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([organizationId, userId])
+  @@index([projectId])
+  @@map("project_memberships")
+}
+
 model Session {
   id         String   @id @default(uuid()) @db.Uuid
   userId     String   @map("user_id") @db.Uuid
@@ -102,23 +213,28 @@ model Session {
 }
 
 model Invitation {
-  id             String    @id @default(uuid()) @db.Uuid
-  organizationId String    @map("organization_id") @db.Uuid
-  email          String    @db.VarChar(320)
-  role           OrgRole
-  tokenHash      String    @unique @map("token_hash") @db.VarChar(64)
-  invitedById    String    @map("invited_by_id") @db.Uuid
-  expiresAt      DateTime  @map("expires_at") @db.Timestamptz(3)
-  acceptedAt     DateTime? @map("accepted_at") @db.Timestamptz(3)
-  revokedAt      DateTime? @map("revoked_at") @db.Timestamptz(3)
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  clientId       String?        @map("client_id") @db.Uuid
+  type           InvitationType @default(INTERNAL)
+  email          String         @db.VarChar(320)
+  role           OrgRole?
+  tokenHash      String         @unique @map("token_hash") @db.VarChar(64)
+  invitedById    String         @map("invited_by_id") @db.Uuid
+  expiresAt      DateTime       @map("expires_at") @db.Timestamptz(3)
+  acceptedAt     DateTime?      @map("accepted_at") @db.Timestamptz(3)
+  revokedAt      DateTime?      @map("revoked_at") @db.Timestamptz(3)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client       Client?      @relation(fields: [clientId, organizationId], references: [id, organizationId], onDelete: Cascade)
   invitedBy    User         @relation("InvitationInvitedBy", fields: [invitedById], references: [id], onDelete: Restrict)
 
   @@index([organizationId, email])
   @@index([organizationId, acceptedAt])
+  @@index([organizationId, type])
+  @@index([clientId])
   @@index([expiresAt])
   @@map("invitations")
 }

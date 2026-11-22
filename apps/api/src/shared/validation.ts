@@ -64,3 +64,21 @@ export function validateParams(schema: ZodType): RequestHandler {
     next();
   };
 }
+
+export function validateQuery(schema: ZodType): RequestHandler {
+  return (req, res, next) => {
+    const result = schema.safeParse(req.query);
+    if (!result.success) {
+      next(
+        AppError.badRequest(
+          "VALIDATION_ERROR",
+          "The query parameters are invalid.",
+          toDetails(result.error),
+        ),
+      );
+      return;
+    }
+    res.locals.query = result.data;
+    next();
+  };
+}

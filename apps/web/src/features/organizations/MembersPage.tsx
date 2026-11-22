@@ -114,7 +114,7 @@ export function MembersPage() {
       );
       setLastInvite({
         email: response.invitation.email,
-        role: response.invitation.role,
+        role: response.invitation.role ?? inviteRole,
         inviteUrl: response.inviteUrl,
       });
       setNotice(`Invitation prepared for ${response.invitation.email}.`);
@@ -130,7 +130,7 @@ export function MembersPage() {
   }
 
   async function resendInvitation(invitation: Invitation) {
-    if (!organizationId) return;
+    if (!organizationId || !invitation.role) return;
     setActionError(null);
     setNotice(null);
     try {
@@ -140,7 +140,7 @@ export function MembersPage() {
       );
       setLastInvite({
         email: response.invitation.email,
-        role: response.invitation.role,
+        role: response.invitation.role ?? invitation.role,
         inviteUrl: response.inviteUrl,
       });
       setNotice(`A fresh invitation link was created for ${response.invitation.email}.`);
@@ -551,7 +551,8 @@ export function MembersPage() {
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-ink-800">{invitation.email}</p>
                   <p className="text-xs text-ink-500">
-                    {roleLabel(invitation.role)} · expires {formatDate(invitation.expiresAt)}
+                    {invitation.role ? roleLabel(invitation.role) : "Member"} · expires{" "}
+                    {formatDate(invitation.expiresAt)}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">

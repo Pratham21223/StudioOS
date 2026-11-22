@@ -58,6 +58,17 @@ export const membershipRepository = {
     });
   },
 
+  findActiveForUsers(organizationId: string, userIds: string[], db: DbClient = prisma) {
+    return db.organizationMembership.findMany({
+      where: {
+        organizationId,
+        userId: { in: userIds },
+        status: "ACTIVE",
+      },
+      select: { userId: true },
+    });
+  },
+
   create(
     data: {
       organizationId: string;

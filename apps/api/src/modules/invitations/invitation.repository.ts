@@ -1,4 +1,4 @@
-import type { Prisma, OrgRole } from "@prisma/client";
+import type { InvitationType, OrgRole, Prisma } from "@prisma/client";
 import { prisma } from "../../infrastructure/database/prisma.js";
 import type { DbClient } from "../users/user.repository.js";
 
@@ -10,12 +10,40 @@ const organizationPreview = {
   createdAt: true,
 } as const;
 
+const clientPreview = {
+  id: true,
+  name: true,
+  status: true,
+} as const;
+
 export const invitationRepository = {
   findPendingByEmail(organizationId: string, email: string, now: Date, db: DbClient = prisma) {
     return db.invitation.findFirst({
       where: {
         organizationId,
         email,
+        type: "INTERNAL",
+        acceptedAt: null,
+        revokedAt: null,
+        expiresAt: { gt: now },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  },
+
+  findPendingClientInvitation(
+    organizationId: string,
+    clientId: string,
+    email: string,
+    now: Date,
+    db: DbClient = prisma,
+  ) {
+    return db.invitation.findFirst({
+      where: {
+        organizationId,
+        clientId,
+        email,
+        type: "CLIENT",
         acceptedAt: null,
         revokedAt: null,
         expiresAt: { gt: now },
@@ -27,7 +55,10 @@ export const invitationRepository = {
   findByTokenHash(tokenHash: string, db: DbClient = prisma) {
     return db.invitation.findUnique({
       where: { tokenHash },
-      include: { organization: { select: organizationPreview } },
+      include: {
+        organization: { select: organizationPreview },
+        client: { select: clientPreview },
+      },
     });
   },
 
@@ -35,6 +66,21 @@ export const invitationRepository = {
     return db.invitation.findMany({
       where: {
         organizationId,
+        type: "INTERNAL",
+        acceptedAt: null,
+        revokedAt: null,
+        expiresAt: { gt: now },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  },
+
+  listPendingForClient(organizationId: string, clientId: string, now: Date, db: DbClient = prisma) {
+    return db.invitation.findMany({
+      where: {
+        organizationId,
+        clientId,
+        type: "CLIENT",
         acceptedAt: null,
         revokedAt: null,
         expiresAt: { gt: now },
@@ -46,8 +92,10 @@ export const invitationRepository = {
   create(
     data: {
       organizationId: string;
+      clientId?: string | null;
+      type: InvitationType;
       email: string;
-      role: OrgRole;
+      role?: OrgRole | null;
       tokenHash: string;
       invitedById: string;
       expiresAt: Date;
@@ -59,7 +107,12 @@ export const invitationRepository = {
 
   reissue(
     id: string,
-    data: { role: OrgRole; tokenHash: string; invitedById: string; expiresAt: Date },
+    data: {
+      role?: OrgRole | null;
+      tokenHash: string;
+      invitedById: string;
+      expiresAt: Date;
+    },
     db: DbClient = prisma,
   ) {
     return db.invitation.update({ where: { id }, data });
@@ -79,6 +132,9 @@ export const invitationRepository = {
   },
 };
 
-export type InvitationWithOrganization = Prisma.InvitationGetPayload<{
-  include: { organization: { select: typeof organizationPreview } };
+export type InvitationWithRelations = Prisma.InvitationGetPayload<{
+  include: {
+    organization: { select: typeof organizationPreview };
+    client: { select: typeof clientPreview };
+  };
 }>;

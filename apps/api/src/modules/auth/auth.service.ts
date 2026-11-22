@@ -13,6 +13,7 @@ import type {
 } from "./auth.validation.js";
 import { passwordResetRepository, sessionRepository } from "./session.repository.js";
 import { userRepository } from "../users/user.repository.js";
+import { clientMembershipRepository } from "../clients/client-membership.repository.js";
 import { membershipRepository } from "../memberships/membership.repository.js";
 import { organizationRepository } from "../organizations/organization.repository.js";
 import { recordAudit } from "../audit/audit.service.js";
@@ -138,6 +139,7 @@ export async function register(input: RegisterInput, meta: RequestMeta): Promise
 export type LoginResult = {
   user: User;
   memberships: Awaited<ReturnType<typeof membershipRepository.listActiveForUser>>;
+  clientMemberships: Awaited<ReturnType<typeof clientMembershipRepository.listActiveForUser>>;
   sessionToken: string;
 };
 
@@ -175,8 +177,11 @@ export async function login(
     );
   });
 
-  const memberships = await membershipRepository.listActiveForUser(user.id);
-  return { user, memberships, sessionToken };
+  const [memberships, clientMemberships] = await Promise.all([
+    membershipRepository.listActiveForUser(user.id),
+    clientMembershipRepository.listActiveForUser(user.id),
+  ]);
+  return { user, memberships, clientMemberships, sessionToken };
 }
 
 export async function logout(sessionToken: string | null): Promise<void> {
@@ -190,8 +195,11 @@ export async function getMe(userId: string) {
     throw new AppError(401, "SESSION_EXPIRED", "Your session has expired. Sign in again.");
   }
 
-  const memberships = await membershipRepository.listActiveForUser(userId);
-  return { user, memberships };
+  const [memberships, clientMemberships] = await Promise.all([
+    membershipRepository.listActiveForUser(userId),
+    clientMembershipRepository.listActiveForUser(userId),
+  ]);
+  return { user, memberships, clientMemberships };
 }
 
 export async function requestPasswordReset(

@@ -12,6 +12,8 @@ import {
 import { updateOrganizationSchema } from "./organization.validation.js";
 import { membershipRouter } from "../memberships/membership.routes.js";
 import { organizationInvitationRouter } from "../invitations/invitation.routes.js";
+import { clientRouter } from "../clients/client.routes.js";
+import { projectRouter } from "../projects/project.routes.js";
 
 export const organizationRouter = Router();
 
@@ -35,4 +37,6 @@ organizationRouter.patch(
 );
 
 organizationRouter.use("/:orgId/members", membershipRouter);
+organizationRouter.use("/:orgId/clients", clientRouter);
+organizationRouter.use("/:orgId/projects", projectRouter);
 organizationRouter.use("/:orgId/invitations", organizationInvitationRouter);

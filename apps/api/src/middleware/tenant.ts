@@ -50,6 +50,7 @@ export const resolveTenant: RequestHandler = async (req, _res, next) => {
   req.tenant = {
     organizationId: membership.organizationId,
     membershipId: membership.id,
+    userId: req.auth.userId,
     role: membership.role,
     organization: membership.organization,
   };

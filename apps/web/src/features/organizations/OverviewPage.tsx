@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Circle,
   Clock3,
+  FolderKanban,
   MailPlus,
   ShieldCheck,
   Users,
@@ -14,12 +15,13 @@ import { ORG_ROLES, ORG_ROLE_DESCRIPTIONS, PERMISSIONS, hasPermission } from "@s
 import { useAuth } from "../../app/AuthProvider";
 import { Avatar, Badge, Card } from "../../components/ui";
 import { api } from "../../lib/api";
-import type { Invitation, Member } from "../../lib/types";
+import type { Invitation, Member, Project } from "../../lib/types";
 import { cn, firstName, greet, roleLabel } from "../../lib/utils";
 import { useActiveMembership } from "./useActiveMembership";
 
 type MemberListResponse = { members: Member[] };
 type InvitationListResponse = { invitations: Invitation[] };
+type ProjectListResponse = { projects: Project[] };
 
 const foundation = [
   {
@@ -39,7 +41,12 @@ const foundation = [
   },
   {
     title: "Clients & projects",
-    body: "The delivery workspace lands in the next milestone.",
+    body: "Client profiles, portal contacts, project scopes, and production teams.",
+    done: true,
+  },
+  {
+    title: "Content workflow",
+    body: "Deliverables, reviews, and tasks arrive in the next milestone.",
     done: false,
   },
 ];
@@ -49,11 +56,18 @@ export function OverviewPage() {
   const membership = useActiveMembership();
   const [members, setMembers] = useState<Member[] | null>(null);
   const [invitations, setInvitations] = useState<Invitation[] | null>(null);
+  const [projects, setProjects] = useState<Project[] | null>(null);
 
   const canViewMembers = membership
     ? hasPermission(membership.role, PERMISSIONS.MEMBERS_VIEW)
     : false;
   const canInvite = membership ? hasPermission(membership.role, PERMISSIONS.MEMBERS_INVITE) : false;
+  const canViewProjects = membership
+    ? hasPermission(membership.role, PERMISSIONS.PROJECTS_VIEW)
+    : false;
+  const canManageProjects = membership
+    ? hasPermission(membership.role, PERMISSIONS.PROJECTS_MANAGE)
+    : false;
 
   const organizationId = membership?.organization.id;
 
@@ -82,10 +96,29 @@ export function OverviewPage() {
     };
   }, [organizationId, canViewMembers]);
 
+  useEffect(() => {
+    if (!organizationId || !canViewProjects) return;
+    let active = true;
+
+    api
+      .get<ProjectListResponse>(`/organizations/${organizationId}/projects`)
+      .then((response) => {
+        if (active) setProjects(response.projects);
+      })
+      .catch(() => {
+        if (active) setProjects(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [organizationId, canViewProjects]);
+
   if (!user || !membership) return null;
 
   const activeMembers = members?.filter((member) => member.status === "ACTIVE").length;
   const pendingInvitations = invitations?.length;
+  const activeProjects = projects?.filter((project) => project.status === "ACTIVE").length;
 
   return (
     <div className="space-y-7">
@@ -94,15 +127,15 @@ export function OverviewPage() {
         <div className="relative z-10 flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl space-y-4">
             <Badge tone="accent" className="border-accent-400/20 bg-accent-500/10 text-accent-400">
-              Milestone 1 · Foundation live
+              Milestone 2 · Clients & projects live
             </Badge>
             <div className="space-y-2">
               <h1 className="font-display text-4xl leading-[1.05] tracking-tight sm:text-5xl">
                 {greet()}, {firstName(user.name)}.
               </h1>
               <p className="max-w-xl text-sm leading-relaxed text-ink-300">
-                Your workspace is secured and ready. This milestone establishes authenticated
-                tenancy, roles, and invitations — the base the production pipeline will sit on.
+                Client profiles, scoped projects, and production teams are organized in one place.
+                Content workflow and client review are next.
               </p>
             </div>
           </div>
@@ -117,20 +150,28 @@ export function OverviewPage() {
                 Invite teammate
               </Link>
             ) : null}
-            {canViewMembers ? (
+            {canManageProjects ? (
               <Link
-                to={`/orgs/${membership.organization.id}/members`}
+                to={`/orgs/${membership.organization.id}/projects?new=1`}
                 className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-medium text-cream-100 transition hover:bg-white/10"
               >
-                <Users className="size-4" aria-hidden="true" />
-                View team
+                <FolderKanban className="size-4" aria-hidden="true" />
+                New project
+              </Link>
+            ) : canViewProjects ? (
+              <Link
+                to={`/orgs/${membership.organization.id}/projects`}
+                className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-medium text-cream-100 transition hover:bg-white/10"
+              >
+                <FolderKanban className="size-4" aria-hidden="true" />
+                View projects
               </Link>
             ) : null}
           </div>
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="p-5">
           <div className="flex items-start justify-between">
             <p className="text-xs font-medium uppercase tracking-[0.12em] text-ink-400">
@@ -153,6 +194,23 @@ export function OverviewPage() {
         <Card className="p-5">
           <div className="flex items-start justify-between">
             <p className="text-xs font-medium uppercase tracking-[0.12em] text-ink-400">
+              Active projects
+            </p>
+            <span className="grid size-8 place-items-center rounded-lg bg-accent-500/10 text-accent-600">
+              <FolderKanban className="size-4" aria-hidden="true" />
+            </span>
+          </div>
+          <p className="mt-3 font-display text-4xl tracking-tight text-ink-900">
+            {activeProjects ?? "—"}
+          </p>
+          <p className="mt-1 text-xs text-ink-500">
+            {canManageProjects ? "In production across all clients" : "Projects assigned to you"}
+          </p>
+        </Card>
+
+        <Card className="p-5">
+          <div className="flex items-start justify-between">
+            <p className="text-xs font-medium uppercase tracking-[0.12em] text-ink-400">
               Pending invitations
             </p>
             <span className="grid size-8 place-items-center rounded-lg bg-amber-100 text-amber-700">
@@ -165,7 +223,7 @@ export function OverviewPage() {
           <p className="mt-1 text-xs text-ink-500">Unaccepted, unexpired workspace invites</p>
         </Card>
 
-        <Card className="p-5 sm:col-span-2 xl:col-span-1">
+        <Card className="p-5">
           <div className="flex items-start justify-between">
             <p className="text-xs font-medium uppercase tracking-[0.12em] text-ink-400">
               Your access

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, type ReactNode } from "react";
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { AlertCircle, ArrowRight, Loader2, RefreshCw } from "lucide-react";
+import { AlertCircle, ArrowRight, Building2, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "../components/ui";
 import { safeNextPath } from "../lib/utils";
 import { useAuth } from "./AuthProvider";
@@ -33,6 +33,26 @@ const ResetPasswordPage = lazy(() =>
 const MembersPage = lazy(() =>
   import("../features/organizations/MembersPage").then((module) => ({
     default: module.MembersPage,
+  })),
+);
+const ClientsPage = lazy(() =>
+  import("../features/clients/ClientsPage").then((module) => ({
+    default: module.ClientsPage,
+  })),
+);
+const ClientDetailPage = lazy(() =>
+  import("../features/clients/ClientDetailPage").then((module) => ({
+    default: module.ClientDetailPage,
+  })),
+);
+const ProjectsPage = lazy(() =>
+  import("../features/projects/ProjectsPage").then((module) => ({
+    default: module.ProjectsPage,
+  })),
+);
+const ProjectDetailPage = lazy(() =>
+  import("../features/projects/ProjectDetailPage").then((module) => ({
+    default: module.ProjectDetailPage,
   })),
 );
 const OverviewPage = lazy(() =>
@@ -105,24 +125,49 @@ function HomeRedirect() {
 }
 
 function NoWorkspacePage() {
-  const { user, logout } = useAuth();
+  const { user, logout, clientMemberships } = useAuth();
   const navigate = useNavigate();
 
   if (!user) return <Navigate to="/login" replace />;
+
+  const hasClientAccess = clientMemberships.length > 0;
 
   return (
     <div className="grid min-h-screen place-items-center bg-cream-50 px-6">
       <div className="w-full max-w-lg rounded-xl border border-cream-200 bg-white p-8 shadow-card">
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent-600">
-          No workspace access
+          {hasClientAccess ? "Client access" : "No workspace access"}
         </p>
         <h1 className="mt-2 font-display text-3xl tracking-tight text-ink-900">
-          You&apos;re signed in, but there&apos;s no workspace here.
+          {hasClientAccess
+            ? "You're connected as a client contact."
+            : "You're signed in, but there's no workspace here."}
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-ink-500">
-          Your memberships may have been deactivated or removed. Ask a workspace admin to restore
-          access, or sign in with another account.
+          {hasClientAccess
+            ? "Your client portal access is ready. Deliverable review and approvals will open here as the client portal is completed."
+            : "Your memberships may have been deactivated or removed. Ask a workspace admin to restore access, or sign in with another account."}
         </p>
+
+        {hasClientAccess ? (
+          <ul className="mt-5 space-y-2">
+            {clientMemberships.map((membership) => (
+              <li
+                key={membership.id}
+                className="flex items-center gap-3 rounded-lg border border-cream-200 bg-cream-50 px-3.5 py-3"
+              >
+                <span className="grid size-8 place-items-center rounded-lg bg-white text-ink-500">
+                  <Building2 className="size-4" aria-hidden="true" />
+                </span>
+                <div>
+                  <p className="text-sm font-medium text-ink-900">{membership.client.name}</p>
+                  <p className="text-[11px] text-ink-500">{membership.organization.name}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
         <div className="mt-6 flex flex-wrap gap-2">
           <Button
             variant="dark"
@@ -223,6 +268,10 @@ export function App() {
           }
         >
           <Route index element={<OverviewPage />} />
+          <Route path="clients" element={<ClientsPage />} />
+          <Route path="clients/:clientId" element={<ClientDetailPage />} />
+          <Route path="projects" element={<ProjectsPage />} />
+          <Route path="projects/:projectId" element={<ProjectDetailPage />} />
           <Route path="members" element={<MembersPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
