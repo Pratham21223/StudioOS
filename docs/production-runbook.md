@@ -59,6 +59,24 @@
 7. Create the first workspace through the public registration page, then remove/disable open
    registration if the deployment should be invite-only (future policy gate).
 
+## Release workflow
+
+`.github/workflows/release.yml` builds and publishes both images to GHCR on `v*` tags or manual
+dispatch. Manual dispatch can also deploy to production when these repository/environment secrets
+exist:
+
+| Secret | Purpose |
+|---|---|
+| `DEPLOY_HOST` | SSH hostname |
+| `DEPLOY_USER` | SSH user with Docker access |
+| `DEPLOY_SSH_KEY` | Private deploy key |
+| `DEPLOY_KNOWN_HOSTS` | Pre-pinned host key(s) |
+| `DEPLOY_PATH` | Directory containing `docker-compose.prod.yml` and `.env.production` |
+
+The deploy job logs in to GHCR, pulls the exact commit-tagged images, runs the migration service, and
+recreates the stack. Rotate the deploy key after staff changes. The host key must be captured out of
+band; do not accept an unknown key during deployment.
+
 ## Routine operations
 
 ### Logs

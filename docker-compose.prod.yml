@@ -64,6 +64,8 @@ services:
       postgres:
         condition: service_healthy
     restart: "no"
+    healthcheck:
+      disable: true
 
   api:
     image: ${API_IMAGE:?Set API_IMAGE}
@@ -91,6 +93,8 @@ services:
     image: ${API_IMAGE:?Set API_IMAGE}
     command: ["node", "apps/api/dist/worker.js"]
     restart: unless-stopped
+    healthcheck:
+      disable: true
     env_file:
       - .env.production
     environment:
