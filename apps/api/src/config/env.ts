@@ -1,0 +1,86 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
+import dotenv from "dotenv";
+import { z } from "zod";
+
+/**
+ * Load a local .env file outside production. Existing process env always wins,
+ * which keeps tests and container deploys authoritative.
+ */
+function loadLocalEnvFile(): void {
+  if (process.env.NODE_ENV === "production") return;
+
+  const candidates = [
+    path.resolve(process.cwd(), ".env"),
+    path.resolve(process.cwd(), "../../.env"),
+  ];
+  const match = candidates.find((candidate) => existsSync(candidate));
+  if (match) {
+    dotenv.config({ path: match, quiet: true });
+  }
+}
+
+loadLocalEnvFile();
+
+const envSchema = z.object({
+  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  PORT: z.coerce.number().int().min(1).max(65_535).default(4000),
+  WEB_ORIGIN: z.string().url(),
+  API_BASE_URL: z.string().url().optional(),
+  TRUST_PROXY: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+
+  DATABASE_URL: z.string().min(1),
+  REDIS_URL: z.string().optional(),
+
+  SESSION_SECRET: z.string().min(32),
+  SESSION_COOKIE_NAME: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[A-Za-z0-9_-]+$/, "Cookie names may only contain letters, numbers, _ and -"),
+  CSRF_COOKIE_NAME: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[A-Za-z0-9_-]+$/, "Cookie names may only contain letters, numbers, _ and -"),
+  SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(720).default(168),
+  PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().min(5).max(1440).default(60),
+  INVITATION_TTL_HOURS: z.coerce.number().int().min(1).max(720).default(168),
+
+  INVITATION_BASE_URL: z.string().url(),
+  PASSWORD_RESET_BASE_URL: z.string().url(),
+
+  S3_REGION: z.string().optional(),
+  S3_BUCKET: z.string().optional(),
+  S3_ACCESS_KEY_ID: z.string().optional(),
+  S3_SECRET_ACCESS_KEY: z.string().optional(),
+  S3_ENDPOINT: z.string().optional(),
+
+  EMAIL_PROVIDER: z.enum(["console", "resend", "ses"]).default("console"),
+  EMAIL_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().optional(),
+
+  LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
+  SEED_PASSWORD: z.string().optional(),
+});
+
+const parsed = envSchema.safeParse(process.env);
+
+if (!parsed.success) {
+  const details = parsed.error.issues
+    .map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`)
+    .join("; ");
+  throw new Error(`Invalid environment configuration: ${details}`);
+}
+
+export const env = {
+  ...parsed.data,
+  isProduction: parsed.data.NODE_ENV === "production",
+  isTest: parsed.data.NODE_ENV === "test",
+  isDevelopment: parsed.data.NODE_ENV === "development",
+} as const;
+
+export type Env = typeof env;

@@ -1,0 +1,92 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: ui-serif, Georgia, Cambria, "Times New Roman", serif;
+
+  --color-cream-50: #faf8f4;
+  --color-cream-100: #f4f0e8;
+  --color-cream-200: #eae3d7;
+  --color-cream-300: #dcd2c2;
+
+  --color-ink-950: #121110;
+  --color-ink-900: #191714;
+  --color-ink-800: #25221e;
+  --color-ink-700: #3b3630;
+  --color-ink-600: #554e45;
+  --color-ink-500: #6f675c;
+  --color-ink-400: #918779;
+  --color-ink-300: #b3a99a;
+
+  --color-accent-400: #ee7551;
+  --color-accent-500: #e2562f;
+  --color-accent-600: #c8441f;
+  --color-accent-700: #a53718;
+
+  --color-moss-500: #4f6b52;
+  --color-moss-100: #e5ede4;
+  --color-amber-100: #f7ecd2;
+  --color-amber-700: #8a5b12;
+  --color-rust-100: #f8e2dc;
+  --color-rust-700: #9a341a;
+
+  --shadow-card: 0 1px 2px rgb(25 23 20 / 0.04), 0 10px 30px -18px rgb(25 23 20 / 0.22);
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background-color: var(--color-cream-50);
+  color: var(--color-ink-900);
+}
+
+::selection {
+  background-color: color-mix(in srgb, var(--color-accent-500) 24%, transparent);
+}
+
+a:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-accent-500) 55%, transparent);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.studio-grid {
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.045) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.studio-glow {
+  background:
+    radial-gradient(60% 55% at 18% 12%, rgb(226 86 47 / 0.26), transparent 70%),
+    radial-gradient(50% 50% at 88% 78%, rgb(255 255 255 / 0.08), transparent 70%);
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-rise {
+  animation: rise-in 320ms ease-out both;
+}
