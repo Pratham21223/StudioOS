@@ -1,4 +1,10 @@
-import type { OrgRole } from "@studioos/shared";
+import type {
+  ContentStatus as SharedContentStatus,
+  ContentType as SharedContentType,
+  OrgRole,
+  TaskPriority as SharedTaskPriority,
+  TaskStatus as SharedTaskStatus,
+} from "@studioos/shared";
 
 export type Organization = {
   id: string;
@@ -144,4 +150,62 @@ export type ProjectMember = {
   id: string;
   createdAt: string;
   user: User;
+};
+
+export type ContentType = SharedContentType;
+export type ContentStatus = SharedContentStatus;
+
+export type ContentItem = {
+  id: string;
+  title: string;
+  description: string | null;
+  type: ContentType;
+  status: ContentStatus;
+  deadline: string | null;
+  version: number;
+  project: {
+    id: string;
+    name: string;
+    status: ProjectStatus;
+    client: { id: string; name: string };
+  };
+  assignee: User | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type WorkflowEvent = {
+  id: string;
+  fromStatus: ContentStatus;
+  toStatus: ContentStatus;
+  note: string | null;
+  actor: User | null;
+  createdAt: string;
+};
+
+export type TaskStatus = SharedTaskStatus;
+export type TaskPriority = SharedTaskPriority;
+
+export type Task = {
+  id: string;
+  title: string;
+  description: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  dueDate: string | null;
+  project: {
+    id: string;
+    name: string;
+    status: ProjectStatus;
+    client: { id: string; name: string };
+  };
+  contentItem: {
+    id: string;
+    title: string;
+    status: ContentStatus;
+  } | null;
+  assignee: User | null;
+  createdBy: User | null;
+  createdAt: string;
+  updatedAt: string;
 };

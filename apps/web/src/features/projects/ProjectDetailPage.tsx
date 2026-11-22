@@ -5,17 +5,18 @@ import {
   Building2,
   CalendarDays,
   CheckCircle2,
+  Clapperboard,
   FolderKanban,
+  ListChecks,
   Pause,
   Play,
   Plus,
   Save,
   ShieldAlert,
   Trash2,
-  UserRound,
   Users,
 } from "lucide-react";
-import { PERMISSIONS, hasPermission } from "@studioos/shared";
+import { CONTENT_TYPE_LABELS, PERMISSIONS, hasPermission } from "@studioos/shared";
 import { useAuth } from "../../app/AuthProvider";
 import {
   Alert,
@@ -30,9 +31,16 @@ import {
   Spinner,
   Textarea,
 } from "../../components/ui";
-import { ProjectStatusBadge } from "../../components/status";
+import { ContentStatusBadge, ProjectStatusBadge } from "../../components/status";
 import { api, getErrorMessage, getFieldErrors } from "../../lib/api";
-import type { Client, Member, Project, ProjectMember, ProjectStatus } from "../../lib/types";
+import type {
+  Client,
+  ContentItem,
+  Member,
+  Project,
+  ProjectMember,
+  ProjectStatus,
+} from "../../lib/types";
 import { formatDate, roleLabel } from "../../lib/utils";
 import { useActiveMembership } from "../organizations/useActiveMembership";
 
@@ -40,6 +48,7 @@ type ProjectResponse = { project: Project };
 type ProjectMemberResponse = { members: ProjectMember[] };
 type MemberResponse = { members: Member[] };
 type ClientResponse = { clients: Client[] };
+type ContentResponse = { content: ContentItem[] };
 
 const emptyForm = {
   name: "",
@@ -63,11 +72,18 @@ export function ProjectDetailPage() {
   const canViewClients = membership
     ? hasPermission(membership.role, PERMISSIONS.CLIENTS_VIEW)
     : false;
+  const canViewContent = membership
+    ? hasPermission(membership.role, PERMISSIONS.CONTENT_VIEW)
+    : false;
+  const canCreateContent = membership
+    ? hasPermission(membership.role, PERMISSIONS.CONTENT_CREATE)
+    : false;
 
   const [project, setProject] = useState<Project | null>(null);
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [organizationMembers, setOrganizationMembers] = useState<Member[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [content, setContent] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -96,11 +112,17 @@ export function ProjectDetailPage() {
         api.get<ProjectMemberResponse>(
           `/organizations/${organizationId}/projects/${projectId}/members`,
         ),
+        canViewContent
+          ? api.get<ContentResponse>(
+              `/organizations/${organizationId}/projects/${projectId}/content-items`,
+            )
+          : Promise.resolve({ content: [] }),
       ] as const;
 
-      const [projectResponse, memberResponse] = await Promise.all(requests);
+      const [projectResponse, memberResponse, contentResponse] = await Promise.all(requests);
       setProject(projectResponse.project);
       setMembers(memberResponse.members);
+      setContent(contentResponse.content);
       setForm({
         name: projectResponse.project.name,
         description: projectResponse.project.description ?? "",
@@ -124,7 +146,14 @@ export function ProjectDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [organizationId, projectId, canViewProjects, canManageProjects, canViewClients]);
+  }, [
+    organizationId,
+    projectId,
+    canViewProjects,
+    canManageProjects,
+    canViewClients,
+    canViewContent,
+  ]);
 
   useEffect(() => {
     void load();
@@ -598,16 +627,89 @@ export function ProjectDetailPage() {
         )}
       </Card>
 
-      <Card className="p-5">
-        <div className="flex items-center gap-2">
-          <UserRound className="size-4 text-ink-400" aria-hidden="true" />
-          <h2 className="font-display text-xl tracking-tight text-ink-900">Content and tasks</h2>
-        </div>
-        <p className="mt-1 text-sm leading-relaxed text-ink-500">
-          Deliverables, the fixed review workflow, and production tasks arrive in the next
-          milestone. Project access and membership are ready for them.
-        </p>
-      </Card>
+      {canViewContent ? (
+        <Card className="overflow-hidden">
+          <div className="flex flex-col gap-3 border-b border-cream-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <Clapperboard className="size-4 text-ink-400" aria-hidden="true" />
+                <h2 className="font-display text-xl tracking-tight text-ink-900">Content</h2>
+                <span className="rounded-full bg-cream-100 px-2 py-0.5 text-[10px] font-semibold text-ink-500">
+                  {content.length}
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs text-ink-500">
+                Deliverables moving through the fixed production workflow.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                to={`/orgs/${membership.organization.id}/content?projectId=${project.id}`}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-cream-300 bg-white px-3 py-2 text-xs font-medium text-ink-700 transition hover:bg-cream-100"
+              >
+                <Clapperboard className="size-3.5" aria-hidden="true" />
+                Open content board
+              </Link>
+              {canCreateContent && !isCompleted ? (
+                <Link
+                  to={`/orgs/${membership.organization.id}/content?projectId=${project.id}&new=1`}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-ink-900 px-3 py-2 text-xs font-medium text-cream-50 transition hover:bg-ink-800"
+                >
+                  <Plus className="size-3.5" aria-hidden="true" />
+                  New content
+                </Link>
+              ) : null}
+              <Link
+                to={`/orgs/${membership.organization.id}/tasks?projectId=${project.id}`}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-cream-300 bg-white px-3 py-2 text-xs font-medium text-ink-700 transition hover:bg-cream-100"
+              >
+                <ListChecks className="size-3.5" aria-hidden="true" />
+                Project tasks
+              </Link>
+            </div>
+          </div>
+
+          {content.length === 0 ? (
+            <EmptyState
+              icon={<Clapperboard className="size-5" />}
+              title="No content yet"
+              description="Create the first deliverable to start the production workflow."
+            />
+          ) : (
+            <ul className="divide-y divide-cream-200">
+              {content.map((item) => (
+                <li key={item.id}>
+                  <Link
+                    to={`/orgs/${membership.organization.id}/content/${item.id}`}
+                    className="flex flex-col gap-2 px-5 py-3.5 transition hover:bg-cream-50 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-cream-100 text-ink-500">
+                        <Clapperboard className="size-4" aria-hidden="true" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-ink-900">{item.title}</p>
+                        <p className="text-xs text-ink-500">
+                          {CONTENT_TYPE_LABELS[item.type]}
+                          {item.assignee ? ` · ${item.assignee.name}` : " · Unassigned"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 pl-11 sm:pl-0">
+                      {item.deadline ? (
+                        <span className="text-xs text-ink-500">
+                          Due {formatDate(item.deadline)}
+                        </span>
+                      ) : null}
+                      <ContentStatusBadge status={item.status} />
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      ) : null}
     </div>
   );
 }

@@ -4,10 +4,13 @@ import {
   PASSWORD,
   createApiClient,
   createClientRecord,
+  createContentRecord,
   createProjectRecord,
+  createTaskRecord,
   inviteMember,
   resetDatabase,
   setupOrganization,
+  transitionContentRecord,
 } from "./helpers.js";
 
 describe("audit trail", () => {
@@ -64,6 +67,29 @@ describe("audit trail", () => {
     );
     expect(addMember.status).toBe(200);
 
+    const content = await createContentRecord(alpha.client, alpha.organization.id, project.id, {
+      title: "Audited Content",
+    });
+    const transition = await transitionContentRecord(
+      alpha.client,
+      alpha.organization.id,
+      content.id,
+      "SCRIPT",
+    );
+    expect(transition.status).toBe(200);
+
+    const task = await createTaskRecord(alpha.client, alpha.organization.id, {
+      projectId: project.id,
+      contentItemId: content.id,
+      title: "Audited Task",
+      assigneeId: accepted.body.user.id as string,
+    });
+    const taskStatus = await alpha.client.patch(
+      `/api/v1/organizations/${alpha.organization.id}/tasks/${task.id}/status`,
+      { status: "IN_PROGRESS" },
+    );
+    expect(taskStatus.status).toBe(200);
+
     const actions = await prisma.auditLog.findMany({
       where: { organizationId: alpha.organization.id },
       orderBy: { createdAt: "asc" },
@@ -78,6 +104,10 @@ describe("audit trail", () => {
     expect(actionNames).toContain("client.created");
     expect(actionNames).toContain("project.created");
     expect(actionNames).toContain("project.members_added");
+    expect(actionNames).toContain("content.created");
+    expect(actionNames).toContain("content.transitioned");
+    expect(actionNames).toContain("task.created");
+    expect(actionNames).toContain("task.status_changed");
 
     const acceptedEntry = actions.find((entry) => entry.action === "invitation.accepted");
     expect(acceptedEntry?.actorId).toBe(accepted.body.user.id);

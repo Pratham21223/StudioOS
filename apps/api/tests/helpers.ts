@@ -269,6 +269,140 @@ export async function createProjectRecord(
   return response.body.project as ProjectView;
 }
 
+export type ContentView = {
+  id: string;
+  title: string;
+  description: string | null;
+  type: "VIDEO" | "PODCAST" | "SOCIAL_POST" | "ARTICLE" | "DESIGN" | "OTHER";
+  status:
+    | "BRIEF"
+    | "SCRIPT"
+    | "SHOOT"
+    | "EDITING"
+    | "INTERNAL_REVIEW"
+    | "CLIENT_APPROVAL"
+    | "READY_TO_PUBLISH";
+  deadline: string | null;
+  version: number;
+  project: {
+    id: string;
+    name: string;
+    status: "ACTIVE" | "PAUSED" | "COMPLETED";
+    client: { id: string; name: string };
+  };
+  assignee: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function createContentRecord(
+  client: ApiClient,
+  organizationId: string,
+  projectId: string,
+  overrides: Partial<{
+    title: string;
+    description: string;
+    type: ContentView["type"];
+    deadline: string;
+    assigneeId: string;
+  }> = {},
+): Promise<ContentView> {
+  const response = await client.post(
+    `/api/v1/organizations/${organizationId}/projects/${projectId}/content-items`,
+    {
+      title: overrides.title ?? "Demo Content",
+      type: overrides.type ?? "PODCAST",
+      ...(overrides.description ? { description: overrides.description } : {}),
+      ...(overrides.deadline ? { deadline: overrides.deadline } : {}),
+      ...(overrides.assigneeId ? { assigneeId: overrides.assigneeId } : {}),
+    },
+  );
+
+  if (response.status !== 201) {
+    throw new Error(`Failed to create content: ${JSON.stringify(response.body)}`);
+  }
+
+  return response.body.content as ContentView;
+}
+
+export type WorkflowEventView = {
+  id: string;
+  fromStatus: ContentView["status"];
+  toStatus: ContentView["status"];
+  note: string | null;
+  actor: { id: string; name: string; email: string } | null;
+  createdAt: string;
+};
+
+export async function transitionContentRecord(
+  client: ApiClient,
+  organizationId: string,
+  contentId: string,
+  toStatus: ContentView["status"],
+  note?: string,
+) {
+  return client.post(
+    `/api/v1/organizations/${organizationId}/content-items/${contentId}/transitions`,
+    { toStatus, ...(note ? { note } : {}) },
+  );
+}
+
+export type TaskView = {
+  id: string;
+  title: string;
+  description: string | null;
+  status: "TODO" | "IN_PROGRESS" | "BLOCKED" | "DONE";
+  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  dueDate: string | null;
+  project: {
+    id: string;
+    name: string;
+    status: "ACTIVE" | "PAUSED" | "COMPLETED";
+    client: { id: string; name: string };
+  };
+  contentItem: { id: string; title: string; status: ContentView["status"] } | null;
+  assignee: { id: string; name: string; email: string } | null;
+  createdBy: { id: string; name: string; email: string } | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function createTaskRecord(
+  client: ApiClient,
+  organizationId: string,
+  overrides: Partial<{
+    projectId: string;
+    contentItemId: string;
+    title: string;
+    description: string;
+    status: TaskView["status"];
+    priority: TaskView["priority"];
+    assigneeId: string;
+    dueDate: string;
+  }> & { projectId: string },
+): Promise<TaskView> {
+  const response = await client.post(`/api/v1/organizations/${organizationId}/tasks`, {
+    projectId: overrides.projectId,
+    title: overrides.title ?? "Demo Task",
+    ...(overrides.contentItemId ? { contentItemId: overrides.contentItemId } : {}),
+    ...(overrides.description ? { description: overrides.description } : {}),
+    ...(overrides.status ? { status: overrides.status } : {}),
+    ...(overrides.priority ? { priority: overrides.priority } : {}),
+    ...(overrides.assigneeId ? { assigneeId: overrides.assigneeId } : {}),
+    ...(overrides.dueDate ? { dueDate: overrides.dueDate } : {}),
+  });
+
+  if (response.status !== 201) {
+    throw new Error(`Failed to create task: ${JSON.stringify(response.body)}`);
+  }
+
+  return response.body.task as TaskView;
+}
+
 export async function inviteClientContact(
   client: ApiClient,
   organizationId: string,
@@ -337,6 +471,6 @@ export function extractResetToken(resetUrl: string): string {
 
 export async function resetDatabase(): Promise<void> {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE TABLE "audit_logs", "password_reset_tokens", "invitations", "sessions", "project_memberships", "projects", "client_memberships", "clients", "organization_memberships", "organizations", "users" RESTART IDENTITY CASCADE',
+    'TRUNCATE TABLE "audit_logs", "password_reset_tokens", "invitations", "sessions", "workflow_events", "tasks", "content_items", "project_memberships", "projects", "client_memberships", "clients", "organization_memberships", "organizations", "users" RESTART IDENTITY CASCADE',
   );
 }

@@ -55,6 +55,21 @@ const ProjectDetailPage = lazy(() =>
     default: module.ProjectDetailPage,
   })),
 );
+const ContentPage = lazy(() =>
+  import("../features/content/ContentPage").then((module) => ({
+    default: module.ContentPage,
+  })),
+);
+const ContentDetailPage = lazy(() =>
+  import("../features/content/ContentDetailPage").then((module) => ({
+    default: module.ContentDetailPage,
+  })),
+);
+const TasksPage = lazy(() =>
+  import("../features/tasks/TasksPage").then((module) => ({
+    default: module.TasksPage,
+  })),
+);
 const OverviewPage = lazy(() =>
   import("../features/organizations/OverviewPage").then((module) => ({
     default: module.OverviewPage,
@@ -272,6 +287,9 @@ export function App() {
           <Route path="clients/:clientId" element={<ClientDetailPage />} />
           <Route path="projects" element={<ProjectsPage />} />
           <Route path="projects/:projectId" element={<ProjectDetailPage />} />
+          <Route path="content" element={<ContentPage />} />
+          <Route path="content/:contentId" element={<ContentDetailPage />} />
+          <Route path="tasks" element={<TasksPage />} />
           <Route path="members" element={<MembersPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>

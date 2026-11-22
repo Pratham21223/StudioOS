@@ -4,8 +4,9 @@ StudioOS is a multi-tenant content production and operations platform for media 
 brings clients, projects, deliverables, tasks, assets, reviews, and approvals into one workspace.
 
 This repository currently implements **Milestone 0 (foundation)**, **Milestone 1 (database,
-authentication, and tenancy)**, and **Milestone 2 (clients and projects)** from the product
-specification. Later milestones build on this secure foundation rather than replacing it.
+authentication, and tenancy)**, **Milestone 2 (clients and projects)**, and **Milestone 3 (content
+and task workflows)** from the product specification. Later milestones build on this secure
+foundation rather than replacing it.
 
 ---
 
@@ -14,19 +15,22 @@ specification. Later milestones build on this secure foundation rather than repl
 | Area | Status |
 |---|---|
 | Monorepo, TypeScript, linting, CI, Docker Compose | Complete (M0) |
-| PostgreSQL schema and migrations | Complete (M1, M2) |
+| PostgreSQL schema and migrations | Complete (M1, M2, M3) |
 | Registration, login, logout, sessions | Complete (M1) |
 | Password reset with hashed single-use tokens | Complete (M1) |
 | Organizations, memberships, centralized RBAC | Complete (M1) |
 | Internal invitations with hashed single-use tokens | Complete (M1) |
-| Tenant-isolation and authorization tests | Complete (M1, M2) |
+| Tenant-isolation and authorization tests | Complete (M1, M2, M3) |
 | React workspace: auth, overview, members, settings | Complete (M1) |
 | Clients, client portal invitations, project CRUD, project teams | Complete (M2) |
 | Client/project UI: directory, client detail, project workspace | Complete (M2) |
-| Email delivery, content workflow, assets, client review, notifications | Not started (M3–M5) |
+| Content items, fixed workflow, workflow event history | Complete (M3) |
+| Task CRUD, assignment, statuses, filters, overdue views | Complete (M3) |
+| Content Kanban and task board UI | Complete (M3) |
+| Email delivery, assets, client review, notifications | Not started (M4–M5) |
 
-The backend tests enforce tenant isolation, client boundaries, project scoping, and server-side
-role authorization before each feature module is added.
+The backend tests enforce tenant isolation, client and project boundaries, workflow validity, task
+assignment rules, and server-side role authorization for each feature module.
 
 ---
 
@@ -62,7 +66,7 @@ studioos/
 │   │   │   ├── config/          # env validation + structured logger
 │   │   │   ├── infrastructure/  # Prisma client
 │   │   │   ├── middleware/      # auth, tenant, CSRF, rate limits, errors
-│   │   │   ├── modules/         # auth, organizations, clients, projects, invitations, audit
+│   │   │   ├── modules/         # auth, orgs, clients, projects, content, tasks, invitations, audit
 │   │   │   ├── shared/          # errors, validation, crypto, presenters
 │   │   │   ├── app.ts
 │   │   │   └── server.ts
@@ -161,7 +165,8 @@ request body and parameter.
    an internal organization member. The seed also creates the **Podcast Season 2** project with the
    PM, Producer, and Editor assigned.
 
-   Content items and tasks will join the seed as those modules land in later milestones.
+   Five content items span the workflow from `BRIEF` through `READY_TO_PUBLISH`, with matching
+   workflow history. Five tasks include overdue, in-progress, and completed examples.
 
 6. **Run the API and web app**
 
@@ -217,7 +222,7 @@ npm run db:migrate
 
 ---
 
-## API implemented in Milestones 1–2
+## API implemented in Milestones 1–3
 
 All routes are under `/api/v1`. Cookie-authenticated unsafe requests require a matching
 `X-CSRF-Token` header and `studioos_csrf` cookie. The web client requests a token from
@@ -279,6 +284,62 @@ Milestone 4.
 Admins and project managers see all organization projects. Producers and editors only see projects
 where they hold a `ProjectMembership`. Project creation, updates, and team assignment require
 `PROJECTS_MANAGE`.
+
+### Content and workflow
+
+| Method | Endpoint |
+|---|---|
+| GET | `/organizations/:orgId/content-items` |
+| GET | `/organizations/:orgId/content-items/:contentId` |
+| PATCH | `/organizations/:orgId/content-items/:contentId` |
+| GET | `/organizations/:orgId/content-items/:contentId/events` |
+| POST | `/organizations/:orgId/content-items/:contentId/transitions` |
+| GET | `/organizations/:orgId/projects/:projectId/content-items` |
+| POST | `/organizations/:orgId/projects/:projectId/content-items` |
+
+Content list filters: `status`, `type`, `projectId`, `assigneeId` (UUID or `me`), and `search`.
+New content always starts in `BRIEF` at version `1`. `PATCH` updates metadata only; status changes
+must go through the transition endpoint. Each transition returns the updated content and the
+workflow event. The web client sends `expectedVersion` so a stale tab cannot apply a transition to a
+newer state.
+
+The fixed workflow is:
+
+```text
+BRIEF -> SCRIPT -> SHOOT -> EDITING -> INTERNAL_REVIEW -> CLIENT_APPROVAL -> READY_TO_PUBLISH
+```
+
+Allowed back-steps are `INTERNAL_REVIEW -> EDITING` and `CLIENT_APPROVAL -> EDITING`.
+`READY_TO_PUBLISH` is terminal. A revision from `CLIENT_APPROVAL` requires a feedback note.
+Role policy is centralized in `packages/shared`:
+
+| Role | Allowed workflow actions |
+|---|---|
+| Admin, Project Manager | Every valid transition |
+| Producer | Production stages and internal-review submission; never acts on client approval |
+| Editor | `EDITING -> INTERNAL_REVIEW` only |
+
+Admins and project managers see all content. Producers and editors only see content on projects
+where they hold a membership. Assignment requires an active internal member; producers and editors
+must already be on the project team.
+
+### Tasks
+
+| Method | Endpoint |
+|---|---|
+| GET | `/organizations/:orgId/tasks` |
+| POST | `/organizations/:orgId/tasks` |
+| GET | `/organizations/:orgId/tasks/:taskId` |
+| PATCH | `/organizations/:orgId/tasks/:taskId` |
+| PATCH | `/organizations/:orgId/tasks/:taskId/status` |
+
+Task list filters: `status`, `priority`, `projectId`, `contentItemId`, `assigneeId` (UUID or `me`),
+`overdue=true`, and `search`. `overdue` means a due date before today in UTC and a status other than
+`DONE`. Tasks may optionally link to a content item from the same project.
+
+Admins, project managers, and producers create and edit tasks. Assignees (including editors) can
+change the status of their own task through the status endpoint. Editors cannot create or edit task
+metadata. Tasks are read-only when their project is `COMPLETED`.
 
 ### Invitations
 
@@ -371,6 +432,35 @@ Every response includes an `X-Request-Id` header. Request IDs appear in structur
   both dates are present.
 - Project and client changes are written to the audit log in the same transaction.
 
+### Content workflow and tasks
+
+- The state machine lives in `packages/shared` (`CONTENT_TRANSITIONS`,
+  `canPerformContentTransition`) and is enforced again in the API service. It is never trusted to
+  the client.
+- Every transition validates the current state, requested state, project access, and role policy.
+  Invalid state pairs return `409 INVALID_CONTENT_TRANSITION`; role violations return
+  `403 CONTENT_TRANSITION_FORBIDDEN`.
+- Transitions use a compare-and-swap update (`WHERE id = ? AND status = ? AND version = ?`) inside
+  the transaction, then insert the workflow event. Concurrent or stale requests cannot both
+  succeed, and a rejected request leaves no event behind.
+- PostgreSQL also checks the transition pair in `workflow_events`, so direct writes cannot invent a
+  workflow step outside the fixed MVP state machine.
+- `content_items.version` increments on each transition and has a database check of `>= 1`.
+  Transitions never move an item backwards without a matching event.
+- Revisions from `CLIENT_APPROVAL` require a note. Approval moves to `READY_TO_PUBLISH`, which is
+  terminal.
+- Content is scoped through its project. Producers and editors cannot list, read, transition, or
+  update content on projects they are not assigned to; guessed IDs return `404`.
+- Content and task assignees must be active internal members. Producers and editors must also hold
+  a project membership so assigned work is always visible to them.
+- Tasks reference their project through a composite tenant foreign key. An extra composite foreign
+  key `(content_item_id, project_id, organization_id)` prevents linking a task to content from a
+  different project, even through direct database access.
+- Completed projects are read-only: content and task creation, metadata updates, transitions, and
+  status changes are rejected with `409 PROJECT_COMPLETED`.
+- Content, workflow, and task changes are written to `audit_logs` in the same transaction as the
+  change.
+
 ### Invitations
 
 - 256-bit random tokens; only HMAC hashes are stored.
@@ -399,14 +489,15 @@ Every response includes an `X-Request-Id` header. Request IDs appear in structur
   move the limiter to Redis.
 - Expired session rows are rejected on use and removed lazily; a scheduled cleanup job should be
   added with the Milestone 5 worker.
-- Browser end-to-end tests are not automated yet (Milestone 6); the Milestone 1 and 2 flows were
+- Browser end-to-end tests are not automated yet (Milestone 6); the Milestone 1–3 flows were
   exercised manually with headless Chrome in addition to the API integration suite.
 - The client portal UI and client-visible project/deliverable APIs arrive in Milestone 4. Client
   accounts created now see an access notice listing their client memberships.
-- Content items, the fixed workflow, tasks, assets, reviews, notifications, and approval flows are
-  not yet built.
-- Client and project lists are not paginated yet; this is safe for the initial team size but should
-  be addressed before large tenants onboard.
+- Assets, file uploads, reviews, comments, notification delivery, and approval records are not yet
+  built. The workflow approval transition is internal in M3; client approval is M4.
+- Task checklists (P1) and task activity timelines beyond audit events are deferred.
+- Client, project, content, and task lists are not paginated yet; this is safe for the initial team
+  size but should be addressed before large tenants onboard.
 - The dashboard is a foundation overview; role-aware operational metrics arrive in Milestone 5.
 - Production project team assignment is limited to admins and project managers. The specification's
   "limited" producer assignment capability is intentionally deferred until content ownership rules
@@ -441,7 +532,7 @@ Every response includes an `X-Request-Id` header. Request IDs appear in structur
 
 ---
 
-## Data model (Milestones 1–2)
+## Data model (Milestones 1–3)
 
 ```text
 User ──< OrganizationMembership >── Organization
@@ -450,8 +541,11 @@ User ──< OrganizationMembership >── Organization
  ├──< PasswordResetToken               │        │
  ├──< AuditLog                          │        └──< Project ──< ProjectMembership >── User
  │                                     │                 │
- ├──< ClientMembership                 └──< Invitation (INTERNAL or CLIENT)
- └──< ProjectMembership
+ ├──< ClientMembership                 │                 ├──< ContentItem ──< WorkflowEvent
+ │                                     │                 │        │
+ ├──< Task ──< ContentItem             │                 │        └──< Task
+ │                                     └──< Invitation (INTERNAL or CLIENT)
+ └──< WorkflowEvent
 ```
 
 Key constraints:
@@ -461,6 +555,15 @@ Key constraints:
 - `organization_memberships` is unique on `(organization_id, user_id)`.
 - `client_memberships` is unique on `(client_id, user_id)`.
 - `project_memberships` is unique on `(project_id, user_id)`.
+- `content_items` is unique on `(id, organization_id)` and indexed on
+  `(organization_id, status)`, `(organization_id, project_id)`, assignee, and deadline.
+- `workflow_events` reference content with a composite tenant foreign key and store actor, previous
+  status, new status, optional note, and timestamp.
+- `tasks` use composite foreign keys for both project and content item. A second composite key
+  `(content_item_id, project_id, organization_id)` guarantees a linked content item belongs to the
+  task's project.
+- PostgreSQL rejects workflow event pairs outside the fixed state machine and content versions
+  below `1`.
 - `clients` is unique on `(id, organization_id)`, enabling composite tenant foreign keys.
 - Projects, client memberships, and client invitations use composite foreign keys to guarantee they
   share the client's organization.
@@ -470,7 +573,7 @@ Key constraints:
 - All child records cascade appropriately; audit actors are set to null if a user is deleted.
 - Status/role fields use PostgreSQL enums.
 
-Future tenant-owned tables (content, tasks, assets, reviews) will follow the same composite
+Future tenant-owned tables (assets, reviews, comments, notifications) will follow the same composite
 tenant-scoping pattern.
 
 ---
@@ -507,9 +610,23 @@ The current suite covers:
 - Project team assignment: active-member validation, duplicate idempotency, removal, and rejection of
   client users, deactivated members, and cross-tenant users.
 - Project pause/resume/completion, terminal completed state, filters, and manager-only updates.
+- Content creation always starting in `BRIEF`, project scoping, metadata updates, filters, and
+  tenant/project denial for guessed IDs.
+- Every valid workflow path, invalid skips, terminal state, required revision notes, version
+  increments, and workflow event actor/from/to history.
+- Role policy for content transitions: admin/manager all, producer production stages, editor
+  limited to internal-review submission.
+- Concurrent transition requests: exactly one succeeds, one returns `409`, and only one event is
+  written.
+- Content assignee rules for active members, project membership, and client users.
+- Task creation, assignment, status changes, filters (status, priority, project, content, assignee,
+  overdue), and editor-only-own-task status updates.
+- Task tenant boundaries, cross-project content rejection, inactive/cross-tenant assignees, and
+  completed-project read-only enforcement.
 - Database-level tenant integrity: composite project/client/membership/invitation foreign keys,
-  date ordering, and invitation type-shape constraints.
-- Client, project, membership, and settings audit entries.
+  task/content project composite keys, workflow transition checks, content version checks, date
+  ordering, and invitation type-shape constraints.
+- Client, project, content, workflow, task, membership, and settings audit entries.
 - Health/readiness endpoints, request IDs, stable error envelopes, secure headers, and the CORS
   allowlist.
 
@@ -573,9 +690,9 @@ configuration is missing or malformed.
 
 ## Next milestone
 
-**Milestone 3 — Content and task workflows.** It adds content items with the fixed state machine,
-workflow event history, task management and assignment, the Kanban board, task filters, overdue
-views, and transactional workflow-transition tests.
+**Milestone 4 — Assets and client approval.** It adds S3-compatible storage, signed upload intents,
+upload completion verification, asset metadata and authorized downloads, the client portal, review
+feedback, client approval and revision requests, and version-aware approval checks.
 
 ---
 

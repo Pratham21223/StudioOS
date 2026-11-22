@@ -5,6 +5,7 @@ import {
   Building2,
   CheckCircle2,
   Circle,
+  Clapperboard,
   Clock3,
   FolderKanban,
   MailPlus,
@@ -46,7 +47,17 @@ const foundation = [
   },
   {
     title: "Content workflow",
-    body: "Deliverables, reviews, and tasks arrive in the next milestone.",
+    body: "Fixed brief-to-publish state machine with transactional transition history.",
+    done: true,
+  },
+  {
+    title: "Tasks & Kanban",
+    body: "Assignments, statuses, priorities, filters, and overdue views.",
+    done: true,
+  },
+  {
+    title: "Assets & approvals",
+    body: "Uploads, client portal review, and version-aware approval.",
     done: false,
   },
 ];
@@ -67,6 +78,9 @@ export function OverviewPage() {
     : false;
   const canManageProjects = membership
     ? hasPermission(membership.role, PERMISSIONS.PROJECTS_MANAGE)
+    : false;
+  const canViewContent = membership
+    ? hasPermission(membership.role, PERMISSIONS.CONTENT_VIEW)
     : false;
 
   const organizationId = membership?.organization.id;
@@ -127,15 +141,15 @@ export function OverviewPage() {
         <div className="relative z-10 flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl space-y-4">
             <Badge tone="accent" className="border-accent-400/20 bg-accent-500/10 text-accent-400">
-              Milestone 2 · Clients & projects live
+              Milestone 3 · Workflow & tasks live
             </Badge>
             <div className="space-y-2">
               <h1 className="font-display text-4xl leading-[1.05] tracking-tight sm:text-5xl">
                 {greet()}, {firstName(user.name)}.
               </h1>
               <p className="max-w-xl text-sm leading-relaxed text-ink-300">
-                Client profiles, scoped projects, and production teams are organized in one place.
-                Content workflow and client review are next.
+                Deliverables move through a fixed production workflow while tasks keep the team
+                aligned. Assets, client review, and approvals are next.
               </p>
             </div>
           </div>
@@ -148,6 +162,15 @@ export function OverviewPage() {
               >
                 <MailPlus className="size-4" aria-hidden="true" />
                 Invite teammate
+              </Link>
+            ) : null}
+            {canViewContent ? (
+              <Link
+                to={`/orgs/${membership.organization.id}/content`}
+                className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-medium text-cream-100 transition hover:bg-white/10"
+              >
+                <Clapperboard className="size-4" aria-hidden="true" />
+                Content board
               </Link>
             ) : null}
             {canManageProjects ? (

@@ -3,8 +3,10 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   Building2,
   ChevronDown,
+  Clapperboard,
   FolderKanban,
   LayoutDashboard,
+  ListChecks,
   LogOut,
   Menu,
   Settings,
@@ -19,9 +21,9 @@ import { cn, roleLabel } from "../lib/utils";
 import { useActiveMembership } from "../features/organizations/useActiveMembership";
 
 const roadmap = [
-  { label: "Content workflow", milestone: "M3" },
-  { label: "Assets & approvals", milestone: "M4" },
+  { label: "Assets & client approval", milestone: "M4" },
   { label: "Notifications & dashboard", milestone: "M5" },
+  { label: "API docs & deployment", milestone: "M6" },
 ];
 
 export function AppShell() {
@@ -63,6 +65,8 @@ export function AppShell() {
   const canViewMembers = hasPermission(membership.role, PERMISSIONS.MEMBERS_VIEW);
   const canViewClients = hasPermission(membership.role, PERMISSIONS.CLIENTS_VIEW);
   const canViewProjects = hasPermission(membership.role, PERMISSIONS.PROJECTS_VIEW);
+  const canViewContent = hasPermission(membership.role, PERMISSIONS.CONTENT_VIEW);
+  const canViewTasks = hasPermission(membership.role, PERMISSIONS.TASKS_VIEW);
   const canManageSettings = hasPermission(membership.role, PERMISSIONS.ORGANIZATION_MANAGE);
 
   const navigation = [
@@ -86,6 +90,20 @@ export function AppShell() {
       icon: FolderKanban,
       end: false,
       visible: canViewProjects,
+    },
+    {
+      to: `/orgs/${membership.organization.id}/content`,
+      label: "Content",
+      icon: Clapperboard,
+      end: false,
+      visible: canViewContent,
+    },
+    {
+      to: `/orgs/${membership.organization.id}/tasks`,
+      label: "Tasks",
+      icon: ListChecks,
+      end: false,
+      visible: canViewTasks,
     },
     {
       to: `/orgs/${membership.organization.id}/members`,
@@ -286,7 +304,7 @@ export function AppShell() {
         </main>
 
         <footer className="mx-auto flex w-full max-w-6xl flex-col gap-2 border-t border-cream-200 px-4 py-6 text-[11px] text-ink-400 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <span>StudioOS · Milestone 2 · Clients, projects, and project teams</span>
+          <span>StudioOS · Milestone 3 · Content workflow and production tasks</span>
           <span>Session-based auth · Server-enforced permissions</span>
         </footer>
       </div>

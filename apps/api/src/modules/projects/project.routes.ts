@@ -19,6 +19,7 @@ import {
   projectParamsSchema,
   updateProjectSchema,
 } from "./project.validation.js";
+import { projectContentRouter } from "../content/content.routes.js";
 
 export const projectRouter = Router({ mergeParams: true });
 
@@ -72,3 +73,5 @@ projectRouter.delete(
   validateParams(projectMemberParamsSchema),
   deleteProjectMember,
 );
+
+projectRouter.use("/:projectId/content-items", projectContentRouter);

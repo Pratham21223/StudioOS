@@ -1,4 +1,4 @@
-// StudioOS schema — Milestone 2
+// StudioOS schema — Milestone 3
 // Shared-schema multi-tenancy: tenant-owned models carry organizationId and
 // related records share composite foreign keys where practical.
 
@@ -54,6 +54,39 @@ enum InvitationType {
   CLIENT
 }
 
+enum ContentType {
+  VIDEO
+  PODCAST
+  SOCIAL_POST
+  ARTICLE
+  DESIGN
+  OTHER
+}
+
+enum ContentStatus {
+  BRIEF
+  SCRIPT
+  SHOOT
+  EDITING
+  INTERNAL_REVIEW
+  CLIENT_APPROVAL
+  READY_TO_PUBLISH
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
 model User {
   id           String     @id @default(uuid()) @db.Uuid
   name         String     @db.VarChar(120)
@@ -63,13 +96,17 @@ model User {
   createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  memberships         OrganizationMembership[]
-  clientMemberships   ClientMembership[]
-  projectMemberships  ProjectMembership[]
-  sessions            Session[]
-  invitationsSent     Invitation[]             @relation("InvitationInvitedBy")
-  passwordResetTokens PasswordResetToken[]
-  auditLogs           AuditLog[]
+  memberships          OrganizationMembership[]
+  clientMemberships    ClientMembership[]
+  projectMemberships   ProjectMembership[]
+  contentItemsAssigned ContentItem[]            @relation("ContentAssignee")
+  tasksAssigned        Task[]                   @relation("TaskAssignee")
+  tasksCreated         Task[]                   @relation("TaskCreator")
+  workflowEvents       WorkflowEvent[]          @relation("WorkflowActor")
+  sessions             Session[]
+  invitationsSent      Invitation[]             @relation("InvitationInvitedBy")
+  passwordResetTokens  PasswordResetToken[]
+  auditLogs            AuditLog[]
 
   @@map("users")
 }
@@ -87,6 +124,9 @@ model Organization {
   clientMemberships  ClientMembership[]
   projects           Project[]
   projectMemberships ProjectMembership[]
+  contentItems       ContentItem[]
+  tasks              Task[]
+  workflowEvents     WorkflowEvent[]
   invitations        Invitation[]
   auditLogs          AuditLog[]
 
@@ -170,6 +210,8 @@ model Project {
   organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   client       Client              @relation(fields: [clientId, organizationId], references: [id, organizationId], onDelete: Restrict)
   memberships  ProjectMembership[]
+  contentItems ContentItem[]
+  tasks        Task[]
 
   @@unique([id, organizationId])
   @@index([organizationId, status])
@@ -193,6 +235,83 @@ model ProjectMembership {
   @@index([organizationId, userId])
   @@index([projectId])
   @@map("project_memberships")
+}
+
+model ContentItem {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String        @map("organization_id") @db.Uuid
+  projectId      String        @map("project_id") @db.Uuid
+  title          String        @db.VarChar(200)
+  description    String?       @db.Text
+  type           ContentType
+  status         ContentStatus @default(BRIEF)
+  deadline       DateTime?     @db.Date
+  assigneeId     String?       @map("assignee_id") @db.Uuid
+  version        Int           @default(1)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project        Project         @relation(fields: [projectId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  assignee       User?           @relation("ContentAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  tasks          Task[]
+  workflowEvents WorkflowEvent[]
+
+  @@unique([id, organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, projectId])
+  @@index([organizationId, assigneeId])
+  @@index([organizationId, deadline])
+  @@map("content_items")
+}
+
+model WorkflowEvent {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String        @map("organization_id") @db.Uuid
+  contentItemId  String        @map("content_item_id") @db.Uuid
+  actorId        String?       @map("actor_id") @db.Uuid
+  fromStatus     ContentStatus @map("from_status")
+  toStatus       ContentStatus @map("to_status")
+  note           String?       @db.Text
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contentItem  ContentItem  @relation(fields: [contentItemId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  actor        User?        @relation("WorkflowActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, contentItemId, createdAt])
+  @@index([organizationId, createdAt])
+  @@map("workflow_events")
+}
+
+model Task {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  projectId      String       @map("project_id") @db.Uuid
+  contentItemId  String?      @map("content_item_id") @db.Uuid
+  title          String       @db.VarChar(200)
+  description    String?      @db.Text
+  status         TaskStatus   @default(TODO)
+  priority       TaskPriority @default(MEDIUM)
+  assigneeId     String?      @map("assignee_id") @db.Uuid
+  createdById    String?      @map("created_by_id") @db.Uuid
+  dueDate        DateTime?    @map("due_date") @db.Date
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  contentItem  ContentItem? @relation(fields: [contentItemId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  assignee     User?        @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdBy    User?        @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status])
+  @@index([organizationId, priority])
+  @@index([organizationId, dueDate])
+  @@index([organizationId, assigneeId])
+  @@index([organizationId, projectId])
+  @@index([contentItemId])
+  @@map("tasks")
 }
 
 model Session {

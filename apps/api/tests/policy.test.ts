@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { PERMISSIONS, ROLE_PERMISSIONS, hasPermission } from "@studioos/shared";
+import {
+  PERMISSIONS,
+  ROLE_PERMISSIONS,
+  canPerformContentTransition,
+  hasPermission,
+  isContentTransitionAllowed,
+} from "@studioos/shared";
 
 describe("centralized role policy", () => {
   it("grants admins the full permission set", () => {
@@ -32,11 +38,33 @@ describe("centralized role policy", () => {
     }
   });
 
-  it("keeps editors out of content creation and workflow transitions", () => {
+  it("keeps editors out of content creation but allows limited review submission", () => {
     expect(hasPermission("EDITOR", PERMISSIONS.CONTENT_VIEW)).toBe(true);
     expect(hasPermission("EDITOR", PERMISSIONS.ASSETS_UPLOAD)).toBe(true);
     expect(hasPermission("EDITOR", PERMISSIONS.CONTENT_CREATE)).toBe(false);
-    expect(hasPermission("EDITOR", PERMISSIONS.CONTENT_TRANSITION)).toBe(false);
+    expect(hasPermission("EDITOR", PERMISSIONS.CONTENT_TRANSITION)).toBe(true);
+    expect(hasPermission("EDITOR", PERMISSIONS.TASKS_CREATE)).toBe(false);
+  });
+
+  it("centralizes the fixed workflow transition policy", () => {
+    expect(isContentTransitionAllowed("BRIEF", "SCRIPT")).toBe(true);
+    expect(isContentTransitionAllowed("BRIEF", "READY_TO_PUBLISH")).toBe(false);
+    expect(isContentTransitionAllowed("READY_TO_PUBLISH", "EDITING")).toBe(false);
+
+    expect(canPerformContentTransition("ADMIN", "CLIENT_APPROVAL", "READY_TO_PUBLISH")).toBe(true);
+    expect(
+      canPerformContentTransition("PROJECT_MANAGER", "INTERNAL_REVIEW", "CLIENT_APPROVAL"),
+    ).toBe(true);
+    expect(canPerformContentTransition("PRODUCER", "BRIEF", "SCRIPT")).toBe(true);
+    expect(canPerformContentTransition("PRODUCER", "INTERNAL_REVIEW", "CLIENT_APPROVAL")).toBe(
+      false,
+    );
+    expect(canPerformContentTransition("PRODUCER", "CLIENT_APPROVAL", "READY_TO_PUBLISH")).toBe(
+      false,
+    );
+    expect(canPerformContentTransition("EDITOR", "EDITING", "INTERNAL_REVIEW")).toBe(true);
+    expect(canPerformContentTransition("EDITOR", "INTERNAL_REVIEW", "EDITING")).toBe(false);
+    expect(canPerformContentTransition("EDITOR", "SCRIPT", "SHOOT")).toBe(false);
   });
 
   it("does not expose an unknown role as implicitly permitted", () => {

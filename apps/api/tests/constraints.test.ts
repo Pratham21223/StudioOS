@@ -128,4 +128,141 @@ describe("database tenant and integrity constraints", () => {
       }),
     ).rejects.toThrow();
   });
+
+  it("rejects content and tasks that cross tenant or project boundaries", async () => {
+    const alpha = await setupOrganization("Alpha Studio", "alpha@example.com");
+    const beta = await setupOrganization("Beta Studio", "beta@example.com");
+    const alphaClient = await createClientRecord(alpha.client, alpha.organization.id, {
+      name: "Alpha Content Client",
+    });
+    const betaClient = await createClientRecord(beta.client, beta.organization.id, {
+      name: "Beta Content Client",
+    });
+    const alphaProject = await createProjectRecord(
+      alpha.client,
+      alpha.organization.id,
+      alphaClient.id,
+      { name: "Alpha Content Project" },
+    );
+    const secondProject = await createProjectRecord(
+      alpha.client,
+      alpha.organization.id,
+      alphaClient.id,
+      { name: "Alpha Second Project" },
+    );
+    await createProjectRecord(beta.client, beta.organization.id, betaClient.id, {
+      name: "Beta Content Project",
+    });
+
+    const betaProject = await prisma.project.findFirstOrThrow({
+      where: { organizationId: beta.organization.id },
+    });
+
+    await expect(
+      prisma.contentItem.create({
+        data: {
+          organizationId: alpha.organization.id,
+          projectId: betaProject.id,
+          title: "Cross Tenant Content",
+          type: "VIDEO",
+        },
+      }),
+    ).rejects.toThrow();
+
+    const firstContent = await prisma.contentItem.create({
+      data: {
+        organizationId: alpha.organization.id,
+        projectId: alphaProject.id,
+        title: "First Project Content",
+        type: "VIDEO",
+      },
+    });
+    const secondContent = await prisma.contentItem.create({
+      data: {
+        organizationId: alpha.organization.id,
+        projectId: secondProject.id,
+        title: "Second Project Content",
+        type: "VIDEO",
+      },
+    });
+
+    await expect(
+      prisma.task.create({
+        data: {
+          organizationId: alpha.organization.id,
+          projectId: alphaProject.id,
+          contentItemId: secondContent.id,
+          title: "Cross Project Task",
+          createdById: alpha.auth.user.id,
+        },
+      }),
+    ).rejects.toThrow();
+
+    await expect(
+      prisma.task.create({
+        data: {
+          organizationId: beta.organization.id,
+          projectId: betaProject.id,
+          contentItemId: firstContent.id,
+          title: "Cross Tenant Task",
+          createdById: beta.auth.user.id,
+        },
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("enforces the fixed workflow state machine at the database level", async () => {
+    const alpha = await setupOrganization("Alpha Studio", "alpha@example.com");
+    const client = await createClientRecord(alpha.client, alpha.organization.id, {
+      name: "Workflow Constraint Client",
+    });
+    const project = await createProjectRecord(alpha.client, alpha.organization.id, client.id, {
+      name: "Workflow Constraint Project",
+    });
+
+    const content = await prisma.contentItem.create({
+      data: {
+        organizationId: alpha.organization.id,
+        projectId: project.id,
+        title: "Constrained Content",
+        type: "PODCAST",
+      },
+    });
+
+    await expect(
+      prisma.workflowEvent.create({
+        data: {
+          organizationId: alpha.organization.id,
+          contentItemId: content.id,
+          actorId: alpha.auth.user.id,
+          fromStatus: "BRIEF",
+          toStatus: "READY_TO_PUBLISH",
+        },
+      }),
+    ).rejects.toThrow();
+
+    await expect(
+      prisma.contentItem.create({
+        data: {
+          organizationId: alpha.organization.id,
+          projectId: project.id,
+          title: "Invalid Version",
+          type: "PODCAST",
+          version: 0,
+        },
+      }),
+    ).rejects.toThrow();
+
+    const event = await prisma.workflowEvent.create({
+      data: {
+        organizationId: alpha.organization.id,
+        contentItemId: content.id,
+        actorId: alpha.auth.user.id,
+        fromStatus: "BRIEF",
+        toStatus: "SCRIPT",
+        note: "Valid transition",
+      },
+    });
+    expect(event.toStatus).toBe("SCRIPT");
+  });
 });
