@@ -114,8 +114,7 @@ export function LoginPage() {
         </p>
 
         <div className="border-t border-cream-200 pt-5 text-xs leading-relaxed text-ink-400">
-          Sessions use secure, HTTP-only cookies. Access is always checked against your active
-          workspace membership.
+          A calmer workspace for creators, producers, and the teams who bring ideas to life.
         </div>
       </div>
     </AuthLayout>

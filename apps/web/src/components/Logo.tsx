@@ -52,7 +52,7 @@ export function Logo({
             isDark ? "text-ink-400" : "text-ink-300",
           )}
         >
-          Production operations
+          Content studio
         </span>
       </span>
     </Link>

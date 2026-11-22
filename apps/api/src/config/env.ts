@@ -83,7 +83,7 @@ const envSchema = z.object({
     .transform((value) => value === "true"),
 
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
-  SEED_DEMO_PASSWORD: z.string().optional(),
+  SEED_PASSWORD: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

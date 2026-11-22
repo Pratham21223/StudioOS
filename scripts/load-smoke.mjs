@@ -1,7 +1,7 @@
 import autocannon from "autocannon";
 
 const baseUrl = process.env.LOAD_BASE_URL ?? "http://localhost:4000";
-const email = process.env.LOAD_EMAIL ?? "admin@studioos.test";
+const email = process.env.LOAD_EMAIL ?? "admin@figuringout.test";
 const password = process.env.LOAD_PASSWORD ?? "StudioOS-dev-2026!";
 const connections = Number(process.env.LOAD_CONNECTIONS ?? 50);
 const duration = Number(process.env.LOAD_DURATION_SECONDS ?? 10);

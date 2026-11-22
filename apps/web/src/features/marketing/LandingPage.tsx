@@ -27,7 +27,7 @@ const navigation = [
   { href: "#product", label: "Product" },
   { href: "#workflow", label: "Workflow" },
   { href: "#portal", label: "Client portal" },
-  { href: "#security", label: "Security" },
+  { href: "#security", label: "Privacy" },
 ];
 
 const features = [
@@ -66,23 +66,23 @@ const workflowStages = [
 const securityPoints = [
   {
     icon: Lock,
-    title: "Private client spaces",
-    body: "Each client sees only their own projects, files, and review history.",
+    title: "Your own creative space",
+    body: "Every creator, producer, and client has a clear place to work.",
   },
   {
     icon: Users,
-    title: "Role-aware access",
-    body: "Admins, producers, editors, and clients each get the access their work requires.",
+    title: "The right people, together",
+    body: "Invite collaborators to the projects they need, without extra noise.",
   },
   {
     icon: ShieldCheck,
-    title: "Protected deliverables",
-    body: "Files are shared through short-lived, authorized links rather than open storage paths.",
+    title: "Files shared thoughtfully",
+    body: "Deliverables move through private links instead of public folders.",
   },
   {
     icon: History,
-    title: "A clear trail",
-    body: "Workflow changes, reviews, and approvals stay attached to the version they belong to.",
+    title: "Every idea remembered",
+    body: "Feedback, revisions, and approvals stay attached to the work.",
   },
 ];
 
@@ -211,14 +211,16 @@ export function LandingPage() {
                 </Link>
               </div>
               <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-ink-500">
-                {["Built for studios and agencies", "Client-ready review", "Private by design"].map(
-                  (item) => (
-                    <span key={item} className="flex items-center gap-1.5">
-                      <Check className="size-3.5 text-moss-500" aria-hidden="true" />
-                      {item}
-                    </span>
-                  ),
-                )}
+                {[
+                  "Built for creators and their teams",
+                  "Client-ready review",
+                  "Your work stays yours",
+                ].map((item) => (
+                  <span key={item} className="flex items-center gap-1.5">
+                    <Check className="size-3.5 text-moss-500" aria-hidden="true" />
+                    {item}
+                  </span>
+                ))}
               </div>
             </div>
 
@@ -380,14 +382,14 @@ export function LandingPage() {
             <div className="grid gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-start">
               <div className="space-y-3 lg:sticky lg:top-28">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-600">
-                  Private by design
+                  Made for creative teams
                 </p>
                 <h2 className="font-display text-4xl leading-tight tracking-tight sm:text-5xl">
-                  Client work stays client work.
+                  Your ideas stay yours.
                 </h2>
                 <p className="max-w-md text-sm leading-relaxed text-ink-500 sm:text-base">
-                  StudioOS keeps every workspace, project, file, and approval inside the boundaries
-                  your team sets — with no public asset folders or shared-drive free-for-alls.
+                  A calm, private home for creators and their teams to shape ideas, share cuts, and
+                  move work forward together.
                 </p>
               </div>
 
@@ -424,7 +426,7 @@ export function LandingPage() {
               {[
                 {
                   icon: Building2,
-                  title: "Studios and agency leads",
+                  title: "Creators and studio leads",
                   body: "See active projects, pending approvals, and overdue work without asking for a status update.",
                 },
                 {
@@ -492,8 +494,8 @@ export function LandingPage() {
           <div className="space-y-4">
             <Logo />
             <p className="max-w-sm text-xs leading-relaxed text-ink-500">
-              Production operations for studios and agencies: clients, projects, files, feedback,
-              and approvals in one private workspace.
+              A workspace for creators and the teams behind their content: ideas, files, feedback,
+              and approvals in one private place.
             </p>
             <p className="text-[11px] text-ink-400">© {new Date().getFullYear()} StudioOS</p>
           </div>

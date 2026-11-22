@@ -1,47 +1,47 @@
-# Figuring Out demonstration seed
+# Figuring Out seed dataset
 
 ## Command
 
 ```bash
-SEED_DEMO_PASSWORD='a-development-password-at-least-12-characters' npm run db:seed
+SEED_PASSWORD='a-development-password-at-least-12-characters' npm run db:seed
 ```
 
 The seed refuses to run when `NODE_ENV=production`. It is idempotent: re-running updates the
-seeded records in place, restores the demo workflow state, and does not create duplicate
+seeded records in place, restores the seeded workflow state, and does not create duplicate
 organizations, users, clients, projects, content, tasks, reviews, or notifications.
 
 ## Accounts
 
 | Role | Name | Email |
 |---|---|---|
-| Admin | Demo Admin | `admin@studioos.test` |
-| Project Manager | Demo Project Manager | `manager@studioos.test` |
-| Producer | Demo Producer | `producer@studioos.test` |
-| Editor | Demo Editor | `editor@studioos.test` |
-| Client contact | Demo Client | `client@studioos.test` |
+| Admin | Aarav Mehta | `admin@figuringout.test` |
+| Project Manager | Priya Nair | `manager@figuringout.test` |
+| Producer | Rohan Desai | `producer@figuringout.test` |
+| Editor | Ananya Iyer | `editor@figuringout.test` |
+| Client contact | Maya Kapoor | `client@figuringout.test` |
 
-All five identities are synthetic. The password is read from `SEED_DEMO_PASSWORD` and hashed with
-the same Argon2id implementation used by the application. The Demo Client is connected only through
-a `ClientMembership` to **StudioOS Demo Client**; it has no internal organization membership.
+All five identities are fictional. The password is read from `SEED_PASSWORD` and hashed with the
+same Argon2id implementation used by the application. The client contact is connected only through
+a `ClientMembership` to **Figuring Out Originals**; it has no internal organization membership.
 
 ## Dataset
 
 - Organization: **Figuring Out Media & Education** (`figuring-out-media`)
-- Clients: **StudioOS Demo Client** and the internal **Figuring Out Podcast — Internal Production**
-  account. No public partner is inserted as an active client.
+- Clients: **Figuring Out Originals** and the internal **Figuring Out Podcast — Internal
+  Production** account. No public partner is inserted as an active client.
 - Projects:
   - **Flagship Podcast: Public Episode Archive** — `COMPLETED`, six real public episodes.
-  - **Weekly Podcast Production Board [DEMO]** — active synthetic production board.
-  - **Cross-platform Content Distribution [DEMO]** — active synthetic distribution board.
+  - **Weekly Podcast Production Board** — active production board.
+  - **Cross-platform Content Distribution** — active distribution board.
 - Content: 22 items.
   - Six historical archive items (FO586–FO591), all `READY_TO_PUBLISH`, under the completed archive.
   - Seven weekly-production items in every fixed workflow stage.
   - Nine distribution items across YouTube, Shorts, Reels, audio, LinkedIn, X, Substack, and
     multilingual adaptations.
-- Tasks: 96 structured tasks. Assignees are synthetic internal users. Only one task belongs to the
-  Demo Admin; work is distributed across the manager, producer, and editor.
-- Reviews: internal feedback, two client revision requests, and two client approvals. The demo
-  client portal has one pending approval with prior revision history and one completed
+- Tasks: 96 structured tasks. Work is distributed across the manager, producer, and editor; only one
+  task belongs to the admin.
+- Reviews: internal feedback, two client revision requests, and two client approvals. The client
+  portal has one pending approval with prior revision history and one completed
   revision-then-approval history.
 - Notifications: 10 seeded notifications covering assignment, deadline, internal review, client
   submission, revision, and approval.
@@ -62,17 +62,24 @@ The seed stores the following reference data in the `seed.reference_data` audit 
 - Eight public content categories and ten production formats. The mapping to the existing
   `ContentType` enum is stored alongside the reference metadata.
 - Eighteen partner references from the official partnership page, each with `REFERENCE_ONLY` status,
-  public category, source URL, and an explicit note that active relationship status is not inferred.
+  public category, source URL, and a note that active relationship status is not inferred.
 
 No copyrighted logo files are downloaded. The app uses its existing StudioOS mark; the internal
 client record documents the text-based branding note.
 
 ## Date strategy
 
-Active demo project deadlines and task dates are generated relative to the UTC day the seed runs.
-This keeps the workload believable without requiring manual edits. Historical episode publication
-dates remain fixed public dates. Re-running the seed shifts active deadlines forward and restores
-the seeded pending-approval state.
+Active project deadlines and task dates are generated relative to the UTC day the seed runs. This
+keeps the workload believable without manual edits. Historical episode publication dates remain
+fixed public dates. Re-running the seed shifts active deadlines forward and restores the seeded
+pending-approval state.
+
+## Classification
+
+The public episode records and partner references are real public references with source URLs.
+The internal people, client contact, active projects, content, tasks, reviews, approvals, and
+notifications are fictional seed records. The classification is retained in
+`seed.reference_data`; visible records use production-facing language.
 
 ## Storage note
 

@@ -190,7 +190,7 @@ export function AppShell() {
               navigate(`/orgs/${event.target.value}`);
               setMobileOpen(false);
             }}
-            className="w-full cursor-pointer appearance-none rounded-lg border border-white/10 bg-white/[0.06] py-2.5 pl-3 pr-9 text-[13px] font-medium text-cream-50 outline-none transition hover:bg-white/[0.09] focus:border-accent-400/60 focus:ring-4 focus:ring-accent-500/10"
+            className="w-full cursor-pointer appearance-none rounded-lg border border-white/10 bg-white/[0.06] py-2.5 pl-3 pr-9 text-xs font-medium text-cream-50 outline-none transition hover:bg-white/[0.09] focus:border-accent-400/60 focus:ring-4 focus:ring-accent-500/10"
           >
             {memberships.map((item) => (
               <option
@@ -319,7 +319,7 @@ export function AppShell() {
 
         <footer className="mx-auto flex w-full max-w-7xl flex-col gap-2 border-t border-cream-200 px-4 py-6 text-[11px] text-ink-400 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <span>© {new Date().getFullYear()} StudioOS</span>
-          <span>Built for content production teams</span>
+          <span>Built for creators and their teams</span>
         </footer>
       </div>
     </div>

@@ -64,7 +64,7 @@ jobs:
       QUEUE_PREFIX: studioos-ci
       EMAIL_JOB_ATTEMPTS: "2"
       EMAIL_JOB_BACKOFF_MS: "50"
-      SEED_DEMO_PASSWORD: StudioOS-dev-2026!
+      SEED_PASSWORD: StudioOS-dev-2026!
       LOG_LEVEL: silent
 
     steps:

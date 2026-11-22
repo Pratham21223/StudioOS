@@ -227,7 +227,7 @@ export async function createClientRecord(
   }> = {},
 ): Promise<ClientView> {
   const response = await client.post(`/api/v1/organizations/${organizationId}/clients`, {
-    name: overrides.name ?? "Demo Client",
+    name: overrides.name ?? "Sample Client",
     ...(overrides.contactName ? { contactName: overrides.contactName } : {}),
     ...(overrides.email ? { email: overrides.email } : {}),
     ...(overrides.phone ? { phone: overrides.phone } : {}),
@@ -256,7 +256,7 @@ export async function createProjectRecord(
 ): Promise<ProjectView> {
   const response = await client.post(`/api/v1/organizations/${organizationId}/projects`, {
     clientId,
-    name: overrides.name ?? "Demo Project",
+    name: overrides.name ?? "Sample Project",
     ...(overrides.description ? { description: overrides.description } : {}),
     ...(overrides.startDate ? { startDate: overrides.startDate } : {}),
     ...(overrides.deadline ? { deadline: overrides.deadline } : {}),
@@ -314,7 +314,7 @@ export async function createContentRecord(
   const response = await client.post(
     `/api/v1/organizations/${organizationId}/projects/${projectId}/content-items`,
     {
-      title: overrides.title ?? "Demo Content",
+      title: overrides.title ?? "Sample Content",
       type: overrides.type ?? "PODCAST",
       ...(overrides.description ? { description: overrides.description } : {}),
       ...(overrides.deadline ? { deadline: overrides.deadline } : {}),
@@ -387,7 +387,7 @@ export async function createTaskRecord(
 ): Promise<TaskView> {
   const response = await client.post(`/api/v1/organizations/${organizationId}/tasks`, {
     projectId: overrides.projectId,
-    title: overrides.title ?? "Demo Task",
+    title: overrides.title ?? "Sample Task",
     ...(overrides.contentItemId ? { contentItemId: overrides.contentItemId } : {}),
     ...(overrides.description ? { description: overrides.description } : {}),
     ...(overrides.status ? { status: overrides.status } : {}),

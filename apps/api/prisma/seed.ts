@@ -12,14 +12,14 @@ import { prisma } from "../src/infrastructure/database/prisma.js";
 import { hashPassword } from "../src/shared/password.js";
 
 /**
- * Figuring Out Media & Education demonstration seed.
+ * Figuring Out Media & Education seed.
  *
  * Date strategy: active production deadlines and task dates are relative to
  * the UTC day the seed runs. Re-running on a later date shifts the workload
  * forward. Historical episode dates are fixed public publication dates.
  *
- * All internal people, client contacts, projects marked [DEMO], content marked
- * [DEMO], tasks, reviews, and approvals are synthetic. Public episode records
+ * Internal people, client contacts, projects, content, tasks, reviews, and
+ * approvals are fictional seed records. Public episode records
  * and partner references are clearly separated and attributed to their source.
  */
 
@@ -33,29 +33,29 @@ const SNAPSHOT_DATE = "2026-11-22";
 const PARTNERS_SOURCE = "https://figuringout.com/partners";
 
 const INTERNAL_USERS = [
-  { key: "admin", name: "Demo Admin", email: "admin@studioos.test", role: "ADMIN" as const },
+  { key: "admin", name: "Aarav Mehta", email: "admin@figuringout.test", role: "ADMIN" as const },
   {
     key: "manager",
-    name: "Demo Project Manager",
-    email: "manager@studioos.test",
+    name: "Priya Nair",
+    email: "manager@figuringout.test",
     role: "PROJECT_MANAGER" as const,
   },
   {
     key: "producer",
-    name: "Demo Producer",
-    email: "producer@studioos.test",
+    name: "Rohan Desai",
+    email: "producer@figuringout.test",
     role: "PRODUCER" as const,
   },
-  { key: "editor", name: "Demo Editor", email: "editor@studioos.test", role: "EDITOR" as const },
+  { key: "editor", name: "Ananya Iyer", email: "editor@figuringout.test", role: "EDITOR" as const },
 ] as const;
 
 const CLIENT_USER = {
   key: "client",
-  name: "Demo Client",
-  email: "client@studioos.test",
+  name: "Maya Kapoor",
+  email: "client@figuringout.test",
 };
 
-const DEMO_CLIENT_NAME = "StudioOS Demo Client";
+const CLIENT_NAME = "Figuring Out Originals";
 const INTERNAL_CLIENT_NAME = "Figuring Out Podcast — Internal Production";
 
 const ORGANIZATION_PROFILE = {
@@ -354,7 +354,7 @@ const PENDING_REVISION_PATH: ContentStatus[] = [
 
 const APPROVED_REVISION_PATH: ContentStatus[] = [...PENDING_REVISION_PATH, "READY_TO_PUBLISH"];
 
-type DemoContentSeed = {
+type ContentSeed = {
   title: string;
   category: string;
   type: ContentType;
@@ -365,163 +365,162 @@ type DemoContentSeed = {
   history?: "standard" | "pending-revision" | "approved-revision";
 };
 
-const WEEKLY_DEMO_CONTENT: DemoContentSeed[] = [
+const WEEKLY_CONTENT: ContentSeed[] = [
   {
-    title: "[DEMO] What Makes a Business Survive Its First Ten Years?",
+    title: "What Makes a Business Survive Its First Ten Years?",
     category: "Business",
     type: "PODCAST",
     status: "BRIEF",
     assigneeKey: "producer",
     dueOffset: 12,
     pitch:
-      "A synthetic editorial exploration of the operating habits, cash discipline, and decision-making that help businesses survive their first decade.",
+      "An editorial exploration of the operating habits, cash discipline, and decision-making that help businesses survive their first decade.",
   },
   {
-    title: "[DEMO] How AI Is Changing the Future of Work in India",
+    title: "How AI Is Changing the Future of Work in India",
     category: "Tech",
     type: "PODCAST",
     status: "SCRIPT",
     assigneeKey: "producer",
     dueOffset: 10,
     pitch:
-      "A synthetic script exploring AI adoption, entry-level roles, new skill adjacencies, and what Indian professionals should learn next.",
+      "A script exploring AI adoption, entry-level roles, new skill adjacencies, and what Indian professionals should learn next.",
   },
   {
-    title: "[DEMO] How Consumer Brands Build Customer Trust",
+    title: "How Consumer Brands Build Customer Trust",
     category: "Business",
     type: "PODCAST",
     status: "SHOOT",
     assigneeKey: "producer",
     dueOffset: 8,
     pitch:
-      "A synthetic production about repeat purchase, transparency, community, and the difference between attention and trust.",
+      "A production about repeat purchase, transparency, community, and the difference between attention and trust.",
   },
   {
-    title: "[DEMO] The Art of Clear Communication",
+    title: "The Art of Clear Communication",
     category: "Mind",
     type: "PODCAST",
     status: "EDITING",
     assigneeKey: "editor",
     dueOffset: 6,
     pitch:
-      "A synthetic episode on framing, listening, storytelling, body language, and making complex ideas easy to act on.",
+      "An episode on framing, listening, storytelling, body language, and making complex ideas easy to act on.",
   },
   {
-    title: "[DEMO] What High Performers Understand About Failure",
+    title: "What High Performers Understand About Failure",
     category: "Mind",
     type: "PODCAST",
     status: "INTERNAL_REVIEW",
     assigneeKey: "editor",
     dueOffset: 4,
     pitch:
-      "A synthetic conversation about feedback loops, identity, recovery, and turning setbacks into better decisions.",
+      "A conversation about feedback loops, identity, recovery, and turning setbacks into better decisions.",
   },
   {
-    title: "[DEMO] Building an Audience Through Better Storytelling",
+    title: "Building an Audience Through Better Storytelling",
     category: "Business",
     type: "PODCAST",
     status: "CLIENT_APPROVAL",
     assigneeKey: "producer",
     dueOffset: 2,
     pitch:
-      "A synthetic client-review episode about narrative structure, repeatable formats, audience memory, and distribution.",
+      "A client-review episode about narrative structure, repeatable formats, audience memory, and distribution.",
     history: "pending-revision",
   },
   {
-    title: "[DEMO] The Discipline Behind Long-Term Success",
+    title: "The Discipline Behind Long-Term Success",
     category: "Mind",
     type: "PODCAST",
     status: "READY_TO_PUBLISH",
     assigneeKey: "producer",
     dueOffset: 1,
     pitch:
-      "A synthetic final-cut episode about consistency, recovery, measurement, and the quiet systems behind visible outcomes.",
+      "A final-cut episode about consistency, recovery, measurement, and the quiet systems behind visible outcomes.",
     history: "approved-revision",
   },
 ];
 
-const DISTRIBUTION_DEMO_CONTENT: DemoContentSeed[] = [
+const DISTRIBUTION_CONTENT: ContentSeed[] = [
   {
-    title: "[DEMO] Episode 101 — YouTube Full Episode Package",
+    title: "Episode 101 — YouTube Full Episode Package",
     category: "Business",
     type: "VIDEO",
     status: "EDITING",
     assigneeKey: "editor",
     dueOffset: 5,
-    pitch: "Synthetic YouTube package for a demonstration long-form conversation.",
+    pitch: "YouTube package for the long-form conversation.",
   },
   {
-    title: "[DEMO] Episode 101 — YouTube Shorts Set",
+    title: "Episode 101 — YouTube Shorts Set",
     category: "Mind",
     type: "SOCIAL_POST",
     status: "SCRIPT",
     assigneeKey: "editor",
     dueOffset: 6,
-    pitch: "Synthetic short-form hooks and captions derived from the demo episode.",
+    pitch: "Short-form hooks and captions derived from the source episode.",
   },
   {
-    title: "[DEMO] Episode 101 — Instagram Reels Set",
+    title: "Episode 101 — Instagram Reels Set",
     category: "Mind",
     type: "SOCIAL_POST",
     status: "SHOOT",
     assigneeKey: "producer",
     dueOffset: 7,
-    pitch: "Synthetic vertical-video cutdowns for Instagram Reels.",
+    pitch: "Vertical-video cutdowns for Instagram Reels.",
   },
   {
-    title: "[DEMO] Episode 101 — Podcast Audio Package",
+    title: "Episode 101 — Podcast Audio Package",
     category: "Business",
     type: "PODCAST",
     status: "READY_TO_PUBLISH",
     assigneeKey: "producer",
     dueOffset: 1,
-    pitch: "Synthetic audio master and show notes package for podcast distribution.",
+    pitch: "Audio master and show notes package for podcast distribution.",
   },
   {
-    title: "[DEMO] Episode 101 — LinkedIn Summary",
+    title: "Episode 101 — LinkedIn Summary",
     category: "Career",
     type: "ARTICLE",
     status: "INTERNAL_REVIEW",
     assigneeKey: "manager",
     dueOffset: 3,
-    pitch: "Synthetic written summary adapted for a professional audience.",
+    pitch: "Written summary adapted for a professional audience.",
   },
   {
-    title: "[DEMO] Episode 101 — X Thread",
+    title: "Episode 101 — X Thread",
     category: "Tech",
     type: "SOCIAL_POST",
     status: "BRIEF",
     assigneeKey: "producer",
     dueOffset: 8,
-    pitch: "Synthetic thread outline built around the episode's central questions.",
+    pitch: "Thread outline built around the episode's central questions.",
   },
   {
-    title: "[DEMO] Episode 101 — Substack Episode Notes",
+    title: "Episode 101 — Substack Episode Notes",
     category: "Money",
     type: "ARTICLE",
     status: "SCRIPT",
     assigneeKey: "editor",
     dueOffset: 9,
-    pitch: "Synthetic long-form newsletter notes and references for the episode.",
+    pitch: "Long-form newsletter notes and references for the episode.",
   },
   {
-    title: "[DEMO] Episode 101 — Hindi & Spanish Adaptations",
+    title: "Episode 101 — Hindi & Spanish Adaptations",
     category: "World",
     type: "VIDEO",
     status: "EDITING",
     assigneeKey: "editor",
     dueOffset: 10,
-    pitch: "Synthetic multilingual adaptation package in Hindi and Spanish.",
+    pitch: "Multilingual adaptation package in Hindi and Spanish.",
   },
   {
-    title: "[DEMO] Episode 101 — Brand Collaboration Cutdowns",
+    title: "Episode 101 — Brand Collaboration Cutdowns",
     category: "Business",
     type: "VIDEO",
     status: "BRIEF",
     assigneeKey: "producer",
     dueOffset: 12,
-    pitch:
-      "Synthetic collaboration-format placeholder. No real partner, terms, or campaign is represented.",
+    pitch: "Collaboration-format cutdowns prepared for an approved brand partnership package.",
   },
 ];
 
@@ -540,7 +539,7 @@ const WEEKLY_TASK_TEMPLATES: TaskTemplate[] = [
   {
     title: "Review audience conversations and emerging topics",
     description:
-      "[SYNTHETIC DEMO] Review audience questions across Reddit, X, LinkedIn, Instagram, YouTube, news, and first-party audience notes. Capture three questions worth exploring.",
+      "Review audience questions across Reddit, X, LinkedIn, Instagram, YouTube, news, and first-party audience notes. Capture three questions worth exploring.",
     role: "producer",
     priority: "HIGH",
     startedAt: "BRIEF",
@@ -550,7 +549,7 @@ const WEEKLY_TASK_TEMPLATES: TaskTemplate[] = [
   {
     title: "Prepare sourced guest research brief",
     description:
-      "[SYNTHETIC DEMO] Build a sourced brief with an original angle, previous interview coverage, claims to verify, and open questions.",
+      "Build a sourced brief with an original angle, previous interview coverage, claims to verify, and open questions.",
     role: "producer",
     priority: "HIGH",
     startedAt: "SCRIPT",
@@ -560,7 +559,7 @@ const WEEKLY_TASK_TEMPLATES: TaskTemplate[] = [
   {
     title: "Prepare interview question bank",
     description:
-      "[SYNTHETIC DEMO] Draft questions that have not already been answered in public interviews, grouped by narrative arc.",
+      "Draft questions that have not already been answered in public interviews, grouped by narrative arc.",
     role: "producer",
     priority: "URGENT",
     startedAt: "SCRIPT",
@@ -568,9 +567,8 @@ const WEEKLY_TASK_TEMPLATES: TaskTemplate[] = [
     dueOffset: -7,
   },
   {
-    title: "Confirm guest availability — DEMO",
-    description:
-      "[SYNTHETIC DEMO] Placeholder coordination task. Guest is TBD — Demo Only; no real booking is represented.",
+    title: "Confirm guest availability",
+    description: "Confirm the guest holds the recording window and update the production calendar.",
     role: "producer",
     priority: "URGENT",
     startedAt: "BRIEF",
@@ -581,7 +579,7 @@ const WEEKLY_TASK_TEMPLATES: TaskTemplate[] = [
   {
     title: "Prepare production schedule and A/V checks",
     description:
-      "[SYNTHETIC DEMO] Confirm studio, lighting, audio, camera, backup recording, and run-of-show timing.",
+      "Confirm studio, lighting, audio, camera, backup recording, and run-of-show timing.",
     role: "producer",
     priority: "HIGH",
     startedAt: "SHOOT",
@@ -590,8 +588,7 @@ const WEEKLY_TASK_TEMPLATES: TaskTemplate[] = [
   },
   {
     title: "Edit long-form master",
-    description:
-      "[SYNTHETIC DEMO] Assemble the master, remove dead air, strengthen the opening, and balance audio.",
+    description: "Assemble the master, remove dead air, strengthen the opening, and balance audio.",
     role: "editor",
     priority: "URGENT",
     startedAt: "EDITING",
@@ -600,8 +597,7 @@ const WEEKLY_TASK_TEMPLATES: TaskTemplate[] = [
   },
   {
     title: "Review audio quality and prepare captions",
-    description:
-      "[SYNTHETIC DEMO] Check loudness, noise, pronunciation, subtitle timing, and caption accuracy.",
+    description: "Check loudness, noise, pronunciation, subtitle timing, and caption accuracy.",
     role: "editor",
     priority: "HIGH",
     startedAt: "EDITING",
@@ -611,7 +607,7 @@ const WEEKLY_TASK_TEMPLATES: TaskTemplate[] = [
   {
     title: "Create thumbnail and title variants",
     description:
-      "[SYNTHETIC DEMO] Create two thumbnail directions and three title concepts. Compare clarity and audience relevance; do not invent performance results.",
+      "Create two thumbnail directions and three title concepts. Compare clarity and audience relevance; do not invent performance results.",
     role: "editor",
     priority: "MEDIUM",
     startedAt: "INTERNAL_REVIEW",
@@ -624,7 +620,7 @@ const DISTRIBUTION_TASK_TEMPLATES: TaskTemplate[] = [
   {
     title: "Prepare YouTube full-episode package",
     description:
-      "[SYNTHETIC DEMO] Assemble title, description, chapters, end screen, and publish checklist for the long-form episode.",
+      "Assemble title, description, chapters, end screen, and publish checklist for the long-form episode.",
     role: "producer",
     priority: "HIGH",
     startedAt: "CLIENT_APPROVAL",
@@ -634,7 +630,7 @@ const DISTRIBUTION_TASK_TEMPLATES: TaskTemplate[] = [
   {
     title: "Prepare YouTube Shorts and Instagram Reels",
     description:
-      "[SYNTHETIC DEMO] Select short-form highlights, compare hooks, and prepare vertical captions for each cut.",
+      "Select short-form highlights, compare hooks, and prepare vertical captions for each cut.",
     role: "editor",
     priority: "MEDIUM",
     startedAt: "CLIENT_APPROVAL",
@@ -644,7 +640,7 @@ const DISTRIBUTION_TASK_TEMPLATES: TaskTemplate[] = [
   {
     title: "Prepare Spotify audio and multilingual deliverables",
     description:
-      "[SYNTHETIC DEMO] Check the audio package and adaptation readiness for Hindi, English, and Spanish.",
+      "Check the audio package and adaptation readiness for Hindi, English, and Spanish.",
     role: "manager",
     priority: "HIGH",
     startedAt: "CLIENT_APPROVAL",
@@ -654,7 +650,7 @@ const DISTRIBUTION_TASK_TEMPLATES: TaskTemplate[] = [
   {
     title: "Prepare LinkedIn summary, X post, and Substack notes",
     description:
-      "[SYNTHETIC DEMO] Adapt the episode into written distribution formats with source links and episode references.",
+      "Adapt the episode into written distribution formats with source links and episode references.",
     role: "manager",
     priority: "MEDIUM",
     startedAt: "CLIENT_APPROVAL",
@@ -667,7 +663,7 @@ const EXPERIMENT_TASK_TEMPLATES: TaskTemplate[] = [
   {
     title: "Compare thumbnail concepts for clarity",
     description:
-      "[SYNTHETIC DEMO] Document the intended hypothesis and review the two thumbnail directions. Do not record fabricated results.",
+      "Document the intended hypothesis and review the two thumbnail directions. Do not record fabricated results.",
     role: "manager",
     priority: "MEDIUM",
     startedAt: "INTERNAL_REVIEW",
@@ -677,7 +673,7 @@ const EXPERIMENT_TASK_TEMPLATES: TaskTemplate[] = [
   {
     title: "Review title and episode-opening retention plan",
     description:
-      "[SYNTHETIC DEMO] Evaluate the opening promise, first 30 seconds, and title clarity before publication.",
+      "Evaluate the opening promise, first 30 seconds, and title clarity before publication.",
     role: "manager",
     priority: "HIGH",
     startedAt: "INTERNAL_REVIEW",
@@ -687,7 +683,7 @@ const EXPERIMENT_TASK_TEMPLATES: TaskTemplate[] = [
   {
     title: "Evaluate CTA placement and short-form hooks",
     description:
-      "[SYNTHETIC DEMO] Compare call-to-action placement and short-form hook options; this is a planning task, not a historical experiment result.",
+      "Compare call-to-action placement and short-form hook options; this is a planning task, not a historical experiment result.",
     role: "producer",
     priority: "LOW",
     startedAt: "CLIENT_APPROVAL",
@@ -751,27 +747,25 @@ function archiveDescription(episode: (typeof ARCHIVE_EPISODES)[number]): string 
     "",
     episode.description,
     "",
-    "This is a historical public-release record imported for demonstration and archive reference only. It is not upcoming production work and does not imply any current client approval or partner relationship.",
+    "Historical public-release archive record; the final status reflects publication.",
   ].join("\n");
 }
 
-function demoDescription(item: DemoContentSeed, projectNote: string): string {
+function contentDescription(item: ContentSeed, projectNote: string): string {
   return [
-    "[SYNTHETIC DEMO DATA — NOT A REAL EPISODE, BOOKING, OR CLIENT DECISION]",
     `Category: ${item.category}`,
-    `Guest: TBD — Demo Only`,
+    `Guest: To be confirmed`,
     `Content type: ${CONTENT_TYPE_LABELS[item.type]}`,
-    `Production format: ${item.type === "PODCAST" ? "Full-length podcast / audio demo" : "Derivative distribution asset"}`,
+    `Production format: ${item.type === "PODCAST" ? "Full-length podcast / audio" : "Distribution asset"}`,
     "",
     item.pitch,
     "",
     projectNote,
-    "No real person has been booked, recorded, approved, or represented by this record.",
   ].join("\n");
 }
 
 function actorForTransition(
-  kind: "archive" | "demo",
+  kind: "archive" | "active",
   fromStatus: ContentStatus,
   toStatus: ContentStatus,
   userIds: Record<string, string>,
@@ -927,7 +921,7 @@ async function ensureContent(
     deadline: Date;
     assigneeId: string;
     createdAt: Date;
-    kind: "archive" | "demo";
+    kind: "archive" | "active";
     path: ContentStatus[];
   },
 ) {
@@ -993,7 +987,7 @@ async function ensureContent(
       title: content.title,
       type: content.type,
       status: "BRIEF",
-      syntheticDemo: input.kind === "demo",
+      fictionalAccount: input.kind === "active",
       historicalArchive: input.kind === "archive",
       seedVersion: SEED_VERSION,
     },
@@ -1015,10 +1009,10 @@ async function ensureContent(
       input.kind === "archive"
         ? "Historical public-release archive import. Not a live workflow action or client decision."
         : fromStatus === "CLIENT_APPROVAL" && toStatus === "EDITING"
-          ? "Synthetic demo revision request: sharpen the opening and add a clearer takeaway."
+          ? "Revision requested: sharpen the opening and add a clearer takeaway."
           : fromStatus === "CLIENT_APPROVAL" && toStatus === "READY_TO_PUBLISH"
-            ? "Synthetic demo approval. Not a real client or partner decision."
-            : "Synthetic demo workflow transition.";
+            ? "Approved for publishing."
+            : "Workflow transition.";
     events.push({ actorId, fromStatus, toStatus, note, createdAt });
     fromStatus = toStatus;
   }
@@ -1049,7 +1043,7 @@ async function ensureContent(
             fromStatus: event.fromStatus,
             toStatus: event.toStatus,
             version: index + 2,
-            syntheticDemo: input.kind === "demo",
+            fictionalAccount: input.kind === "active",
             historicalArchive: input.kind === "archive",
             seedVersion: SEED_VERSION,
           },
@@ -1066,25 +1060,25 @@ async function ensureContent(
     createdAt: Date;
   }> = [];
 
-  if (input.kind === "demo" && input.status === "INTERNAL_REVIEW") {
+  if (input.kind === "active" && input.status === "INTERNAL_REVIEW") {
     reviewSeeds.push({
       decision: "INTERNAL_FEEDBACK",
       reviewerId: context.userIds.manager!,
       contentVersion: version,
       feedback:
-        "Synthetic internal feedback: clarify the promise in the opening and verify the key claims before client review.",
+        "Clarify the promise in the opening and verify the key claims before client review.",
       createdAt: addHours(input.createdAt, (input.path.length + 1) * 6),
     });
   }
 
-  if (input.kind === "demo" && input.path.includes("CLIENT_APPROVAL")) {
+  if (input.kind === "active" && input.path.includes("CLIENT_APPROVAL")) {
     if (input.path.filter((status) => status === "CLIENT_APPROVAL").length > 1) {
       reviewSeeds.push({
         decision: "CLIENT_REVISION_REQUESTED",
         reviewerId: context.userIds.client!,
         contentVersion: 6,
         feedback:
-          "Synthetic demo feedback: sharpen the opening and add one clearer practical takeaway for the audience.",
+          "Please sharpen the opening and add one clearer practical takeaway for the audience.",
         createdAt: addHours(input.createdAt, 6 * 6 + 1),
       });
     }
@@ -1094,20 +1088,20 @@ async function ensureContent(
       contentVersion:
         input.path.filter((status) => status === "INTERNAL_REVIEW").length > 1 ? 8 : version - 2,
       feedback:
-        "Synthetic internal review: title and opening are clear; confirm source links and distribution notes before release.",
+        "Title and opening are clear. Confirm source links and distribution notes before release.",
       createdAt: addHours(input.createdAt, 7 * 6 + 1),
     });
   }
 
-  if (input.kind === "demo" && input.status === "READY_TO_PUBLISH") {
+  if (input.kind === "active" && input.status === "READY_TO_PUBLISH") {
     reviewSeeds.push({
       decision: "CLIENT_APPROVED",
       reviewerId: context.userIds.client!,
       contentVersion: version - 1,
       feedback:
         input.path.filter((status) => status === "CLIENT_APPROVAL").length > 1
-          ? "Synthetic demo approval for a subsequent version. This is not a real client or partner decision."
-          : "Synthetic demo approval. This is not a real client or partner decision.",
+          ? "Approved for publishing after revision."
+          : "Approved for publishing.",
       createdAt: addHours(input.createdAt, 8 * 6 + 1),
     });
   }
@@ -1142,7 +1136,7 @@ async function ensureContent(
           decision: review.decision,
           contentVersion: review.contentVersion,
           feedback: review.feedback,
-          syntheticDemo: true,
+          fictionalAccount: true,
           seedVersion: SEED_VERSION,
         },
       });
@@ -1218,7 +1212,7 @@ async function ensureTask(
       priority: task.priority,
       assigneeId: task.assigneeId,
       contentItemId: task.contentItemId,
-      syntheticDemo: true,
+      fictionalAccount: true,
       seedVersion: SEED_VERSION,
     },
   });
@@ -1232,7 +1226,7 @@ async function ensureTask(
       metadata: {
         fromStatus: "TODO",
         toStatus: task.status,
-        syntheticDemo: true,
+        fictionalAccount: true,
         seedVersion: SEED_VERSION,
       },
     });
@@ -1276,15 +1270,15 @@ async function ensureNotification(
 
 async function main(): Promise<void> {
   if (env.isProduction) {
-    throw new Error("Refusing to seed demonstration data in production.");
+    throw new Error("Refusing to seed development data in production.");
   }
-  if (!env.SEED_DEMO_PASSWORD || env.SEED_DEMO_PASSWORD.length < 12) {
+  if (!env.SEED_PASSWORD || env.SEED_PASSWORD.length < 12) {
     throw new Error(
-      "Set SEED_DEMO_PASSWORD to a development-only password of at least 12 characters before seeding.",
+      "Set SEED_PASSWORD to a development-only password of at least 12 characters before seeding.",
     );
   }
 
-  const passwordHash = await hashPassword(env.SEED_DEMO_PASSWORD);
+  const passwordHash = await hashPassword(env.SEED_PASSWORD);
 
   const summary = await prisma.$transaction(async (tx) => {
     const organization = await tx.organization.upsert({
@@ -1358,25 +1352,24 @@ async function main(): Promise<void> {
       status: "ACTIVE",
     });
 
-    const demoClient = await upsertClient(tx, organization.id, DEMO_CLIENT_NAME, {
-      contactName: "Synthetic Demo Contact",
+    const clientRecord = await upsertClient(tx, organization.id, CLIENT_NAME, {
+      contactName: "Maya Kapoor",
       email: null,
       website: null,
       notes:
-        "SYNTHETIC DEMO DATA. This client exists only to demonstrate the StudioOS client portal, reviews, revisions, and approvals. It is not a real Figuring Out partner and has no real contact details.",
-      brandGuidelines:
-        "Synthetic demo brand. Never present this account as a real client or partner.",
+        "Brand review account for Figuring Out Originals. Reviews original content, revisions, and approvals before publishing.",
+      brandGuidelines: "Brand review notes for original content and campaign approvals.",
       status: "ACTIVE",
     });
 
     await tx.clientMembership.upsert({
       where: {
-        clientId_userId: { clientId: demoClient.id, userId: clientUser.id },
+        clientId_userId: { clientId: clientRecord.id, userId: clientUser.id },
       },
       update: { organizationId: organization.id, status: "ACTIVE" },
       create: {
         organizationId: organization.id,
-        clientId: demoClient.id,
+        clientId: clientRecord.id,
         userId: clientUser.id,
         status: "ACTIVE",
       },
@@ -1393,8 +1386,8 @@ async function main(): Promise<void> {
         deadline: new Date("2026-11-21T00:00:00.000Z"),
         description: [
           "A reference archive containing selected publicly released episodes from Figuring Out with Raj Shamani.",
-          "Imported records are for demonstration and historical reference only — not active production work.",
-          "Episodes FO586–FO591 are real public titles with official source URLs. No current approval, booking, or partner relationship is implied.",
+          "Imported records are historical archive references, not active production work.",
+          "Episodes FO586–FO591 are public titles with official source URLs; final status reflects the original publication.",
         ].join(" "),
       },
     );
@@ -1402,15 +1395,15 @@ async function main(): Promise<void> {
     const weeklyProject = await upsertProject(
       tx,
       organization.id,
-      "Weekly Podcast Production Board [DEMO]",
+      "Weekly Podcast Production Board",
       {
-        clientId: demoClient.id,
+        clientId: clientRecord.id,
         status: "ACTIVE",
         startDate: dayOffset(-21),
         deadline: dayOffset(30),
         description: [
-          "Synthetic demonstration workspace showing how an editorial and production team can manage podcast ideas, scripts, recordings, editing, internal review, client approvals, and distribution.",
-          "Every content item is prefixed [DEMO], every guest is TBD — Demo Only, and no real interview, booking, or client decision is represented.",
+          "Editorial and production workspace for the weekly long-form conversation: ideas, scripts, recordings, editing, internal review, client approvals, and distribution.",
+          "Guest names are confirmed only after booking; the board tracks research, production, review, and distribution readiness.",
         ].join(" "),
       },
     );
@@ -1418,15 +1411,15 @@ async function main(): Promise<void> {
     const distributionProject = await upsertProject(
       tx,
       organization.id,
-      "Cross-platform Content Distribution [DEMO]",
+      "Cross-platform Content Distribution",
       {
-        clientId: demoClient.id,
+        clientId: clientRecord.id,
         status: "ACTIVE",
         startDate: dayOffset(-14),
         deadline: dayOffset(21),
         description: [
-          "Synthetic project demonstrating how a long-form podcast is transformed into short-form videos, YouTube Shorts, Instagram Reels, podcast audio, LinkedIn posts, X posts, and written summaries.",
-          "This does not represent a real campaign. No real partner, budget, contract, or performance result is implied.",
+          "Distribution workspace that turns each long-form conversation into short-form video, YouTube Shorts, Instagram Reels, podcast audio, LinkedIn posts, X posts, and written summaries.",
+          "Packaging, localisation, scheduling, and publishing checks are tracked per channel.",
         ].join(" "),
       },
     );
@@ -1452,9 +1445,9 @@ async function main(): Promise<void> {
 
     const referenceMetadata = {
       seedVersion: SEED_VERSION,
-      syntheticDemoData: {
-        client: DEMO_CLIENT_NAME,
-        note: "All internal users, demo client contacts, demo projects/content/tasks/reviews, and approvals are synthetic.",
+      fictionalAccounts: {
+        client: CLIENT_NAME,
+        note: "All internal users, client contacts, projects, content, tasks, reviews, and approvals are fictional seed records; public episode and partner references retain their source URLs.",
       },
       organizationProfile: ORGANIZATION_PROFILE,
       socialChannels: SOCIAL_CHANNELS,
@@ -1465,7 +1458,7 @@ async function main(): Promise<void> {
       productionFormatMapping: PRODUCTION_FORMAT_MAPPING,
       partnerReferences: PARTNER_REFERENCES,
       logoNote:
-        "No copyrighted logo asset was downloaded. The application uses its own text/shape mark for the demo organization.",
+        "No copyrighted logo asset was downloaded. The application uses its own text/shape mark.",
       sourceAttribution: {
         website: "https://figuringout.com/",
         partners: PARTNERS_SOURCE,
@@ -1527,7 +1520,7 @@ async function main(): Promise<void> {
           name: project.name,
           status: project.status,
           seedVersion: SEED_VERSION,
-          syntheticDemo: project.id !== archiveProject.id,
+          fictionalAccount: project.id !== archiveProject.id,
           historicalArchive: project.id === archiveProject.id,
         },
       });
@@ -1549,18 +1542,18 @@ async function main(): Promise<void> {
       });
     }
 
-    for (const item of WEEKLY_DEMO_CONTENT) {
+    for (const item of WEEKLY_CONTENT) {
       const deadline = dayOffset(item.dueOffset);
       await ensureContent(tx, context, {
         projectId: weeklyProject.id,
         title: item.title,
-        description: demoDescription(item, weeklyProject.description ?? ""),
+        description: contentDescription(item, weeklyProject.description ?? ""),
         type: item.type,
         status: item.status,
         deadline,
         assigneeId: userIds[item.assigneeKey]!,
         createdAt: dayOffset(-6),
-        kind: "demo",
+        kind: "active",
         path:
           item.history === "pending-revision"
             ? PENDING_REVISION_PATH
@@ -1570,18 +1563,18 @@ async function main(): Promise<void> {
       });
     }
 
-    for (const item of DISTRIBUTION_DEMO_CONTENT) {
+    for (const item of DISTRIBUTION_CONTENT) {
       const deadline = dayOffset(item.dueOffset);
       const content = await ensureContent(tx, context, {
         projectId: distributionProject.id,
         title: item.title,
-        description: demoDescription(item, distributionProject.description ?? ""),
+        description: contentDescription(item, distributionProject.description ?? ""),
         type: item.type,
         status: item.status,
         deadline,
         assigneeId: userIds[item.assigneeKey]!,
         createdAt: dayOffset(-4),
-        kind: "demo",
+        kind: "active",
         path: STANDARD_PATHS[item.status],
       });
 
@@ -1596,7 +1589,7 @@ async function main(): Promise<void> {
         {
           title: "Prepare and quality-check this distribution package",
           description:
-            "[SYNTHETIC DEMO] Package the deliverable, verify naming, captions, links, and channel requirements. No real campaign is represented.",
+            "Package the deliverable, verify naming, captions, links, and channel requirements.",
           role: "producer",
           priority: "HIGH",
           status:
@@ -1610,7 +1603,7 @@ async function main(): Promise<void> {
         {
           title: "Localize and schedule the distribution assets",
           description:
-            "[SYNTHETIC DEMO] Check Hindi, English, and Spanish adaptations where relevant, then prepare the publishing schedule.",
+            "Check Hindi, English, and Spanish adaptations where relevant, then prepare the publishing schedule.",
           role: "manager",
           priority: "MEDIUM",
           status:
@@ -1640,7 +1633,7 @@ async function main(): Promise<void> {
       }
     }
 
-    for (const item of WEEKLY_DEMO_CONTENT) {
+    for (const item of WEEKLY_CONTENT) {
       const contentId = context.contentByTitle.get(item.title)!;
       const deadline = dayOffset(item.dueOffset);
       const templates = [
@@ -1677,7 +1670,7 @@ async function main(): Promise<void> {
         contentItemId: null,
         title: "Review last week's audience conversations",
         description:
-          "[SYNTHETIC DEMO] Pull recurring questions from audience comments and internal notes for the next editorial slate.",
+          "Pull recurring questions from audience comments and internal notes for the next editorial slate.",
         status: "IN_PROGRESS" as const,
         priority: "HIGH" as const,
         assigneeId: userIds.manager!,
@@ -1689,7 +1682,7 @@ async function main(): Promise<void> {
         contentItemId: null,
         title: "Compare thumbnail concepts across this week's slate",
         description:
-          "[SYNTHETIC DEMO] Prepare an experiment brief for thumbnail clarity and title performance. Do not invent results.",
+          "Prepare an experiment brief for thumbnail clarity and title performance. Do not invent results.",
         status: "TODO" as const,
         priority: "MEDIUM" as const,
         assigneeId: userIds.manager!,
@@ -1701,7 +1694,7 @@ async function main(): Promise<void> {
         contentItemId: null,
         title: "Maintain public partnership reference list",
         description:
-          "[SYNTHETIC DEMO] Review the official partnership-page snapshot stored in seed metadata. Do not treat reference brands as active clients or campaigns.",
+          "Review the official partnership-page snapshot stored in seed metadata. Do not treat reference brands as active clients or campaigns.",
         status: "BLOCKED" as const,
         priority: "LOW" as const,
         assigneeId: userIds.manager!,
@@ -1713,7 +1706,7 @@ async function main(): Promise<void> {
         contentItemId: null,
         title: "Review short-form hook experiment brief",
         description:
-          "[SYNTHETIC DEMO] Compare hook hypotheses for the next distribution slate. Results are intentionally not fabricated.",
+          "Compare hook hypotheses for the next distribution slate. Results are intentionally not fabricated.",
         status: "TODO" as const,
         priority: "MEDIUM" as const,
         assigneeId: userIds.producer!,
@@ -1743,16 +1736,14 @@ async function main(): Promise<void> {
     }
 
     const pendingClientContent = context.contentByTitle.get(
-      "[DEMO] Building an Audience Through Better Storytelling",
+      "Building an Audience Through Better Storytelling",
     )!;
-    const readyContent = context.contentByTitle.get(
-      "[DEMO] The Discipline Behind Long-Term Success",
-    )!;
+    const readyContent = context.contentByTitle.get("The Discipline Behind Long-Term Success")!;
     const internalReviewContent = context.contentByTitle.get(
-      "[DEMO] What High Performers Understand About Failure",
+      "What High Performers Understand About Failure",
     )!;
     const scriptContent = context.contentByTitle.get(
-      "[DEMO] How AI Is Changing the Future of Work in India",
+      "How AI Is Changing the Future of Work in India",
     )!;
     const editorTask = context.taskByKey.get(
       `${internalReviewContent}:Review audio quality and prepare captions`,
@@ -1767,53 +1758,52 @@ async function main(): Promise<void> {
       {
         userId: userIds.client!,
         type: "CONTENT_SUBMITTED" as const,
-        title:
-          "New cut ready for client review: [DEMO] Building an Audience Through Better Storytelling",
-        body: "The StudioOS Demo Client portal has a synthetic deliverable awaiting approval.",
+        title: "New cut ready for client review: Building an Audience Through Better Storytelling",
+        body: "The Figuring Out Originals portal has a deliverable awaiting approval.",
         dedupeKey: "seed:notification:client-submission",
         payload: {
           contentItemId: pendingClientContent,
           projectId: weeklyProject.id,
-          syntheticDemo: true,
+          fictionalAccount: true,
         },
         readAt: null,
       },
       {
         userId: userIds.producer!,
         type: "REVIEW_FEEDBACK" as const,
-        title: "New review feedback on [DEMO] What High Performers Understand About Failure",
-        body: "Demo Project Manager left synthetic internal feedback on the current cut.",
+        title: "New review feedback on What High Performers Understand About Failure",
+        body: "Priya Nair left internal feedback on the current cut.",
         dedupeKey: "seed:notification:review-feedback",
         payload: {
           contentItemId: internalReviewContent,
           projectId: weeklyProject.id,
-          syntheticDemo: true,
+          fictionalAccount: true,
         },
         readAt: null,
       },
       {
         userId: userIds.producer!,
         type: "REVISION_REQUESTED" as const,
-        title: "Revision requested on [DEMO] The Discipline Behind Long-Term Success",
-        body: "Synthetic demo feedback asked for a sharper opening and a clearer takeaway.",
+        title: "Revision requested on The Discipline Behind Long-Term Success",
+        body: "Feedback asked for a sharper opening and a clearer takeaway.",
         dedupeKey: "seed:notification:revision-requested",
         payload: {
           contentItemId: readyContent,
           projectId: weeklyProject.id,
-          syntheticDemo: true,
+          fictionalAccount: true,
         },
         readAt: addDays(dayOffset(-1), 0),
       },
       {
         userId: userIds.manager!,
         type: "CONTENT_APPROVED" as const,
-        title: "Client approved [DEMO] The Discipline Behind Long-Term Success",
-        body: "Synthetic demo approval recorded for a subsequent version. No real client decision.",
+        title: "Client approved The Discipline Behind Long-Term Success",
+        body: "Approval recorded for the revised version.",
         dedupeKey: "seed:notification:content-approved",
         payload: {
           contentItemId: readyContent,
           projectId: weeklyProject.id,
-          syntheticDemo: true,
+          fictionalAccount: true,
         },
         readAt: null,
       },
@@ -1821,13 +1811,13 @@ async function main(): Promise<void> {
         userId: userIds.editor!,
         type: "TASK_ASSIGNED" as const,
         title: "Task assigned: Review audio quality and prepare captions",
-        body: "Synthetic demo task on [DEMO] What High Performers Understand About Failure.",
+        body: "Task on What High Performers Understand About Failure.",
         dedupeKey: "seed:notification:task-editor",
         payload: {
           taskId: editorTask,
           contentItemId: internalReviewContent,
           projectId: weeklyProject.id,
-          syntheticDemo: true,
+          fictionalAccount: true,
         },
         readAt: null,
       },
@@ -1835,13 +1825,13 @@ async function main(): Promise<void> {
         userId: userIds.producer!,
         type: "TASK_ASSIGNED" as const,
         title: "Task assigned: Edit long-form master",
-        body: "Synthetic demo task on [DEMO] How AI Is Changing the Future of Work in India.",
+        body: "Task on How AI Is Changing the Future of Work in India.",
         dedupeKey: "seed:notification:task-producer",
         payload: {
           taskId: producerTask,
           contentItemId: scriptContent,
           projectId: weeklyProject.id,
-          syntheticDemo: true,
+          fictionalAccount: true,
         },
         readAt: addDays(dayOffset(-1), 0),
       },
@@ -1849,38 +1839,38 @@ async function main(): Promise<void> {
         userId: userIds.manager!,
         type: "DEADLINE_REMINDER" as const,
         title: "Overdue task: Review last week's audience conversations",
-        body: "This synthetic demo task is overdue. Update it or mark it done.",
+        body: "This task is overdue. Update it or mark it done.",
         dedupeKey: "seed:notification:deadline-manager",
         payload: {
           taskId: overdueTask,
           projectId: weeklyProject.id,
-          syntheticDemo: true,
+          fictionalAccount: true,
         },
         readAt: null,
       },
       {
         userId: userIds.admin!,
         type: "CONTENT_SUBMITTED" as const,
-        title: "Weekly demo slate submitted for client review",
-        body: "One synthetic deliverable is awaiting StudioOS Demo Client approval.",
+        title: "Weekly slate submitted for client review",
+        body: "One deliverable is awaiting Figuring Out Originals approval.",
         dedupeKey: "seed:notification:admin-submission",
         payload: {
           contentItemId: pendingClientContent,
           projectId: weeklyProject.id,
-          syntheticDemo: true,
+          fictionalAccount: true,
         },
         readAt: addDays(dayOffset(-2), 0),
       },
       {
         userId: userIds.manager!,
         type: "CONTENT_SUBMITTED" as const,
-        title: "Internal review submitted: [DEMO] What High Performers Understand About Failure",
-        body: "The editorial review queue has a synthetic cut awaiting internal feedback.",
+        title: "Internal review submitted: What High Performers Understand About Failure",
+        body: "The editorial review queue has a cut awaiting internal feedback.",
         dedupeKey: "seed:notification:internal-review-submission",
         payload: {
           contentItemId: internalReviewContent,
           projectId: weeklyProject.id,
-          syntheticDemo: true,
+          fictionalAccount: true,
         },
         readAt: null,
       },
@@ -1888,13 +1878,13 @@ async function main(): Promise<void> {
         userId: userIds.producer!,
         type: "DEADLINE_REMINDER" as const,
         title: "Task due soon: Prepare sourced guest research brief",
-        body: "This synthetic demo task is due tomorrow. Review the brief and question bank.",
+        body: "This task is due tomorrow. Review the brief and question bank.",
         dedupeKey: "seed:notification:deadline-producer",
         payload: {
           taskId: dueSoonTask,
           contentItemId: scriptContent,
           projectId: weeklyProject.id,
-          syntheticDemo: true,
+          fictionalAccount: true,
         },
         readAt: null,
       },
@@ -1942,20 +1932,18 @@ async function main(): Promise<void> {
     };
   });
 
-  console.log("Figuring Out demonstration seed complete.");
+  console.log("Figuring Out seed complete.");
   console.log(`Workspace: ${ORG.name} (${ORG.slug})`);
-  console.log(`Synthetic internal users: ${INTERNAL_USERS.length}`);
+  console.log(`Internal users: ${INTERNAL_USERS.length}`);
   for (const user of INTERNAL_USERS) {
     console.log(`  ${user.role}: ${user.email}`);
   }
-  console.log(`  CLIENT: ${CLIENT_USER.email} -> ${DEMO_CLIENT_NAME}`);
-  console.log("Password: read from SEED_DEMO_PASSWORD. Development/demo only.");
+  console.log(`  CLIENT: ${CLIENT_USER.email} -> ${CLIENT_NAME}`);
+  console.log("Password: read from SEED_PASSWORD. Development use only.");
   console.log(
     `Counts: ${summary.users} users, ${summary.clients} clients, ${summary.projects} projects, ${summary.content} content items, ${summary.tasks} tasks, ${summary.reviews} reviews, ${summary.notifications} notifications, ${summary.workflowEvents} workflow events, ${summary.partnerReferences} partnership references.`,
   );
-  console.log(
-    "Archive: FO586–FO591 are real public episode records. Everything marked [DEMO] or StudioOS Demo Client is synthetic.",
-  );
+  console.log("Archive: FO586–FO591 are public episode records with official source URLs.");
   console.log("Assets: none seeded; uploads require configured object storage.");
 }
 

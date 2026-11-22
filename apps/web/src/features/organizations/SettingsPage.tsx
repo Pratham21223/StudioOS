@@ -185,12 +185,12 @@ export function SettingsPage() {
           <Card className="p-5">
             <div className="flex items-center gap-2">
               <ShieldCheck className="size-4 text-moss-500" aria-hidden="true" />
-              <h2 className="font-display text-lg tracking-tight text-ink-900">Security notes</h2>
+              <h2 className="font-display text-lg tracking-tight text-ink-900">Workspace notes</h2>
             </div>
             <ul className="mt-3 space-y-2.5 text-xs leading-relaxed text-ink-500">
-              <li>Organization and role data are always resolved on the server.</li>
-              <li>Deactivated members lose workspace access on their next request.</li>
-              <li>At least one active admin is required at all times.</li>
+              <li>Everyone sees the projects and clients they are invited to work with.</li>
+              <li>Completed projects and archived clients stay available as reference.</li>
+              <li>Ask an admin when a teammate needs access restored or a role updated.</li>
             </ul>
           </Card>
         </div>

@@ -1,4 +1,4 @@
-import { Check, ShieldCheck, Sparkles } from "lucide-react";
+import { Check, Sparkles } from "lucide-react";
 import { Logo } from "./Logo";
 
 const highlights = [
@@ -17,7 +17,7 @@ export function BrandPanel() {
         <div className="mt-auto max-w-lg space-y-8 pb-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-cream-200">
             <Sparkles className="size-3.5 text-accent-400" aria-hidden="true" />
-            Built for production teams
+            Built for creators &amp; their teams
           </div>
 
           <h2 className="font-display text-5xl leading-[1.02] tracking-tight text-cream-50 xl:text-6xl">
@@ -42,9 +42,8 @@ export function BrandPanel() {
           </ul>
         </div>
 
-        <div className="mt-auto flex items-center gap-2 border-t border-white/10 pt-5 text-[11px] text-ink-400">
-          <ShieldCheck className="size-4 text-moss-100/70" aria-hidden="true" />
-          Private by default · Client-isolated data
+        <div className="mt-auto border-t border-white/10 pt-5 text-[11px] text-ink-400">
+          Made for creators and the teams behind their content.
         </div>
       </div>
     </aside>
