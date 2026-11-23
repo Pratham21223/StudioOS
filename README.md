@@ -255,6 +255,7 @@ request body and parameter.
 | `npm run test:e2e` | Playwright browser smoke tests |
 | `npm run test:e2e:install` | Install Chromium and system deps for Playwright |
 | `npm run build` | Build shared package, API, and web |
+| `npm run api:smoke` | Check auth, workspace, and client portal APIs against a running API |
 | `npm run format` | Format with Prettier |
 | `npm run format:check` | Verify formatting (used in CI) |
 | `npm run db:migrate` | Create/apply a development migration |
@@ -870,6 +871,23 @@ PLAYWRIGHT_CHANNEL=chrome npm run test:e2e
 
 They cover dashboard/navigation, content/assets/notifications, the client portal, and mobile
 overflow. CI installs Chromium automatically.
+
+API smoke test against a running API (read-only; expects the seed data):
+
+```bash
+SEED_PASSWORD='StudioOS-dev-2026!' npm run api:smoke
+```
+
+It logs in through the same CSRF + cookie flow as the web app, then checks health, internal
+workspace endpoints, notifications, the client portal, and role separation. For a deployed
+environment, point it at the public API:
+
+```bash
+API_SMOKE_BASE_URL=https://app.example.com/api/v1 \
+API_SMOKE_ADMIN_EMAIL=you@example.com \
+API_SMOKE_ADMIN_PASSWORD='...' \
+npm run api:smoke
+```
 
 Performance smoke against a running API:
 

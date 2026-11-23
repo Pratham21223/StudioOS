@@ -25,6 +25,7 @@
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install --with-deps chromium",
     "load:smoke": "node scripts/load-smoke.mjs",
+    "api:smoke": "node scripts/api-smoke.mjs",
     "db:migrate": "prisma migrate dev --schema apps/api/prisma/schema.prisma",
     "db:deploy": "prisma migrate deploy --schema apps/api/prisma/schema.prisma",
     "db:seed": "npm run db:seed -w @studioos/api",
