@@ -174,8 +174,8 @@ export function OverviewPage() {
               icon={<Clock3 className="size-4" />}
             />
             <StatCard
-              label="My open tasks"
-              value={dashboard.counts.myOpenTasks}
+              label={dashboard.scope === "ORGANIZATION" ? "Open tasks" : "My open tasks"}
+              value={dashboard.counts.openTasks}
               icon={<ListChecks className="size-4" />}
             />
             <StatCard
@@ -249,8 +249,14 @@ export function OverviewPage() {
             <Card className="overflow-hidden">
               <div className="flex items-center justify-between border-b border-cream-200 px-5 py-4">
                 <div>
-                  <h2 className="font-display text-xl tracking-tight text-ink-900">My tasks</h2>
-                  <p className="text-xs text-ink-500">Open work assigned to you</p>
+                  <h2 className="font-display text-xl tracking-tight text-ink-900">
+                    {dashboard.scope === "ORGANIZATION" ? "Open tasks" : "My tasks"}
+                  </h2>
+                  <p className="text-xs text-ink-500">
+                    {dashboard.scope === "ORGANIZATION"
+                      ? "Open work across the workspace"
+                      : "Open work assigned to you"}
+                  </p>
                 </div>
                 <Link
                   to={`/orgs/${membership.organization.id}/tasks`}
@@ -259,15 +265,19 @@ export function OverviewPage() {
                   Task board
                 </Link>
               </div>
-              {dashboard.myTasks.length === 0 ? (
+              {dashboard.openTasks.length === 0 ? (
                 <EmptyState
                   icon={<ListChecks className="size-5" />}
                   title="No open tasks"
-                  description="Nothing is assigned to you right now."
+                  description={
+                    dashboard.scope === "ORGANIZATION"
+                      ? "Every task in the workspace is done."
+                      : "Nothing is assigned to you right now."
+                  }
                 />
               ) : (
                 <ul className="divide-y divide-cream-200">
-                  {dashboard.myTasks.map((task) => (
+                  {dashboard.openTasks.map((task) => (
                     <li key={task.id} className="px-5 py-3.5">
                       <div className="flex items-start justify-between gap-2">
                         <Link
@@ -280,6 +290,9 @@ export function OverviewPage() {
                       </div>
                       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-500">
                         <span>{task.project.name}</span>
+                        {dashboard.scope === "ORGANIZATION" && task.assignee ? (
+                          <span>{task.assignee.name}</span>
+                        ) : null}
                         <TaskStatusBadge status={task.status} />
                         {task.dueDate ? (
                           <span

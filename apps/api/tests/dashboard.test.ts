@@ -121,6 +121,8 @@ describe("role-aware dashboard", () => {
     expect(managerData.counts.activeProjects).toBe(2);
     expect(managerData.counts.awaitingApproval).toBe(1);
     expect(managerData.counts.overdueTasks).toBe(3);
+    expect(managerData.counts.openTasks).toBe(3);
+    expect(managerData.openTasks).toHaveLength(3);
     expect(managerData.awaitingApproval[0].id).toBe(contentOne.id);
     expect(managerData.projects).toHaveLength(2);
     expect(
@@ -138,8 +140,8 @@ describe("role-aware dashboard", () => {
     expect(producerData.counts.activeProjects).toBe(1);
     expect(producerData.counts.awaitingApproval).toBe(1);
     expect(producerData.counts.overdueTasks).toBe(1);
-    expect(producerData.counts.myOpenTasks).toBe(1);
-    expect(producerData.myTasks[0].title).toBe("Producer overdue task");
+    expect(producerData.counts.openTasks).toBe(1);
+    expect(producerData.openTasks[0].title).toBe("Producer overdue task");
     expect(producerData.overdueTasks[0].title).toBe("Producer overdue task");
     expect(producerData.projects[0].id).toBe(projectOne.id);
 
@@ -150,7 +152,7 @@ describe("role-aware dashboard", () => {
     expect(editorData.counts.activeProjects).toBe(1);
     expect(editorData.counts.awaitingApproval).toBe(0);
     expect(editorData.counts.overdueTasks).toBe(1);
-    expect(editorData.myTasks[0].title).toBe("Editor overdue task");
+    expect(editorData.openTasks[0].title).toBe("Editor overdue task");
     expect(editorData.awaitingApproval).toHaveLength(0);
 
     const crossTenant = await beta.client.get(

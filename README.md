@@ -4,6 +4,8 @@ StudioOS is a multi-tenant content production and operations platform for media 
 studios one workspace to manage clients, projects, deliverables, tasks, assets, reviews, and client
 approvals — with separate internal and client-facing experiences.
 
+![StudioOS content board showing the production workflow from brief to publish](docs/screenshots/content-board.png)
+
 ## What it does
 
 - **Clients and projects** — client accounts, portal invitations, project teams, and deliverables.

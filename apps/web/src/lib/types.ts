@@ -312,13 +312,12 @@ export type DashboardTask = {
   status: TaskStatus;
   priority: TaskPriority;
   dueDate: string | null;
+  assignee: { id: string; name: string } | null;
   project: { id: string; name: string };
   contentItem: { id: string; title: string } | null;
 };
 
-export type DashboardOverdueTask = Omit<DashboardTask, "contentItem"> & {
-  assignee: { id: string; name: string } | null;
-};
+export type DashboardOverdueTask = Omit<DashboardTask, "contentItem">;
 
 export type DashboardProject = {
   id: string;
@@ -336,7 +335,7 @@ export type Dashboard = {
     activeProjects: number;
     activeContent: number;
     awaitingApproval: number;
-    myOpenTasks: number;
+    openTasks: number;
     overdueTasks: number;
     unreadNotifications: number;
   };
@@ -349,7 +348,7 @@ export type Dashboard = {
     updatedAt: string;
     project: { id: string; name: string };
   }>;
-  myTasks: DashboardTask[];
+  openTasks: DashboardTask[];
   overdueTasks: DashboardOverdueTask[];
   projects: DashboardProject[];
 };

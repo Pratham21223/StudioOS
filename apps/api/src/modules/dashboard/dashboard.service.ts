@@ -34,6 +34,11 @@ export async function getDashboard(tenant: TenantContext) {
   const manager = hasPermission(tenant.role, PERMISSIONS.PROJECTS_MANAGE);
   const projectWhere = projectScope(tenant);
   const contentWhere = contentScope(tenant);
+  const openTaskWhere: Prisma.TaskWhereInput = {
+    organizationId: tenant.organizationId,
+    status: { not: "DONE" },
+    ...(manager ? {} : { assigneeId: tenant.userId }),
+  };
   const today = startOfTodayUtc();
 
   const [
@@ -41,8 +46,8 @@ export async function getDashboard(tenant: TenantContext) {
     contentGroups,
     awaitingApproval,
     awaitingApprovalCount,
-    myTasks,
-    myOpenTaskCount,
+    openTasks,
+    openTaskCount,
     overdueTasks,
     overdueTaskCount,
     projects,
@@ -73,17 +78,14 @@ export async function getDashboard(tenant: TenantContext) {
       where: { ...contentWhere, status: "CLIENT_APPROVAL" },
     }),
     prisma.task.findMany({
-      where: {
-        organizationId: tenant.organizationId,
-        assigneeId: tenant.userId,
-        status: { not: "DONE" },
-      },
+      where: openTaskWhere,
       select: {
         id: true,
         title: true,
         status: true,
         priority: true,
         dueDate: true,
+        assignee: { select: { id: true, name: true } },
         project: { select: { id: true, name: true } },
         contentItem: { select: { id: true, title: true } },
       },
@@ -91,19 +93,10 @@ export async function getDashboard(tenant: TenantContext) {
       take: 10,
     }),
     prisma.task.count({
-      where: {
-        organizationId: tenant.organizationId,
-        assigneeId: tenant.userId,
-        status: { not: "DONE" },
-      },
+      where: openTaskWhere,
     }),
     prisma.task.findMany({
-      where: {
-        organizationId: tenant.organizationId,
-        status: { not: "DONE" },
-        dueDate: { lt: today },
-        ...(manager ? {} : { assigneeId: tenant.userId }),
-      },
+      where: { ...openTaskWhere, dueDate: { lt: today } },
       select: {
         id: true,
         title: true,
@@ -117,12 +110,7 @@ export async function getDashboard(tenant: TenantContext) {
       take: 10,
     }),
     prisma.task.count({
-      where: {
-        organizationId: tenant.organizationId,
-        status: { not: "DONE" },
-        dueDate: { lt: today },
-        ...(manager ? {} : { assigneeId: tenant.userId }),
-      },
+      where: { ...openTaskWhere, dueDate: { lt: today } },
     }),
     prisma.project.findMany({
       where: projectWhere,
@@ -165,7 +153,7 @@ export async function getDashboard(tenant: TenantContext) {
       activeProjects: activeProjectCount,
       activeContent,
       awaitingApproval: awaitingApprovalCount,
-      myOpenTasks: myOpenTaskCount,
+      openTasks: openTaskCount,
       overdueTasks: overdueTaskCount,
       unreadNotifications,
     },
@@ -178,12 +166,13 @@ export async function getDashboard(tenant: TenantContext) {
       updatedAt: item.updatedAt.toISOString(),
       project: item.project,
     })),
-    myTasks: myTasks.map((task) => ({
+    openTasks: openTasks.map((task) => ({
       id: task.id,
       title: task.title,
       status: task.status,
       priority: task.priority,
       dueDate: dateOnly(task.dueDate),
+      assignee: task.assignee,
       project: task.project,
       contentItem: task.contentItem,
     })),

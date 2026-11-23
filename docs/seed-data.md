@@ -14,14 +14,14 @@ organizations, users, clients, projects, content, tasks, reviews, or notificatio
 
 | Role | Name | Email |
 |---|---|---|
-| Admin | Aarav Mehta | `admin@figuringout.test` |
-| Project Manager | Priya Nair | `manager@figuringout.test` |
+| Admin | Raj Shamani | `admin@figuringout.test` |
+| Project Manager | Eram Dalwai | `manager@figuringout.test` |
 | Producer | Rohan Desai | `producer@figuringout.test` |
 | Editor | Ananya Iyer | `editor@figuringout.test` |
 | Client contact | Maya Kapoor | `client@figuringout.test` |
 
-All five identities are fictional. The password is read from `SEED_PASSWORD` and hashed with the
-same Argon2id implementation used by the application. The client contact is connected only through
+The seeded accounts are demonstration identities, not real user accounts. The password is read from
+`SEED_PASSWORD` and hashed with the same Argon2id implementation used by the application. The client contact is connected only through
 a `ClientMembership` to **Figuring Out Originals**; it has no internal organization membership.
 
 ## Dataset

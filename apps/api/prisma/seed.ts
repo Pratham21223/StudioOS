@@ -1,15 +1,20 @@
-import type {
-  ContentStatus,
-  ContentType,
-  NotificationType,
-  Prisma,
-  ReviewDecision,
-  TaskPriority,
-  TaskStatus,
+import {
+  PrismaClient,
+  type ContentStatus,
+  type ContentType,
+  type NotificationType,
+  type Prisma,
+  type ReviewDecision,
+  type TaskPriority,
+  type TaskStatus,
 } from "@prisma/client";
 import { env } from "../src/config/env.js";
-import { prisma } from "../src/infrastructure/database/prisma.js";
 import { hashPassword } from "../src/shared/password.js";
+
+const prisma = new PrismaClient({
+  log: ["warn", "error"],
+  transactionOptions: { maxWait: 30_000, timeout: 240_000 },
+});
 
 /**
  * Figuring Out Media & Education seed.
@@ -19,7 +24,7 @@ import { hashPassword } from "../src/shared/password.js";
  * forward. Historical episode dates are fixed public publication dates.
  *
  * Internal people, client contacts, projects, content, tasks, reviews, and
- * approvals are fictional seed records. Public episode records
+ * approvals are seeded demonstration records. Public episode records
  * and partner references are clearly separated and attributed to their source.
  */
 
@@ -33,10 +38,10 @@ const SNAPSHOT_DATE = "2026-11-22";
 const PARTNERS_SOURCE = "https://figuringout.com/partners";
 
 const INTERNAL_USERS = [
-  { key: "admin", name: "Aarav Mehta", email: "admin@figuringout.test", role: "ADMIN" as const },
+  { key: "admin", name: "Raj Shamani", email: "admin@figuringout.test", role: "ADMIN" as const },
   {
     key: "manager",
-    name: "Priya Nair",
+    name: "Eram Dalwai",
     email: "manager@figuringout.test",
     role: "PROJECT_MANAGER" as const,
   },
@@ -1450,7 +1455,7 @@ async function main(): Promise<void> {
       seedVersion: SEED_VERSION,
       fictionalAccounts: {
         client: CLIENT_NAME,
-        note: "All internal users, client contacts, projects, content, tasks, reviews, and approvals are fictional seed records; public episode and partner references retain their source URLs.",
+        note: "All internal users, client contacts, projects, content, tasks, reviews, and approvals are seeded demonstration records; public episode and partner references retain their source URLs.",
       },
       organizationProfile: ORGANIZATION_PROFILE,
       socialChannels: SOCIAL_CHANNELS,
@@ -1775,7 +1780,7 @@ async function main(): Promise<void> {
         userId: userIds.producer!,
         type: "REVIEW_FEEDBACK" as const,
         title: "New review feedback on What High Performers Understand About Failure",
-        body: "Priya Nair left internal feedback on the current cut.",
+        body: "Eram Dalwai left internal feedback on the current cut.",
         dedupeKey: "seed:notification:review-feedback",
         payload: {
           contentItemId: internalReviewContent,
