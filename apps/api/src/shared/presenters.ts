@@ -6,7 +6,7 @@ import type {
   User,
 } from "@prisma/client";
 
-type UserRecord = Pick<User, "id" | "name" | "email" | "status" | "createdAt">;
+type UserRecord = Pick<User, "id" | "name" | "email" | "status" | "emailVerifiedAt" | "createdAt">;
 type OrganizationRecord = Pick<Organization, "id" | "name" | "slug" | "status" | "createdAt">;
 type ClientRecord = Pick<
   Client,
@@ -31,6 +31,7 @@ export function presentUser(user: UserRecord) {
     name: user.name,
     email: user.email,
     status: user.status,
+    emailVerified: Boolean(user.emailVerifiedAt),
     createdAt: user.createdAt.toISOString(),
   };
 }

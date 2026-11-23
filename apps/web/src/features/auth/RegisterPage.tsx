@@ -5,6 +5,7 @@ import { AuthLayout } from "../../components/AuthLayout";
 import { Alert, Button, FormField, Input, PasswordInput } from "../../components/ui";
 import { getErrorMessage, getFieldErrors } from "../../lib/api";
 import { useAuth } from "../../app/AuthProvider";
+import { OAuthButtons } from "./OAuthButtons";
 
 export function RegisterPage() {
   const { register } = useAuth();
@@ -24,8 +25,16 @@ export function RegisterPage() {
     setFieldErrors({});
 
     try {
-      const organizationId = await register({ name, email, password, organizationName });
-      navigate(organizationId ? `/orgs/${organizationId}` : "/no-workspace", { replace: true });
+      const pending = await register({ name, email, password, organizationName });
+      navigate("/verify-email", {
+        replace: true,
+        state: {
+          email: pending.email,
+          devCode: pending.devCode,
+          expiresInMinutes: pending.expiresInMinutes,
+          resendAfterSeconds: pending.resendAfterSeconds,
+        },
+      });
     } catch (submitError) {
       setError(getErrorMessage(submitError));
       setFieldErrors(getFieldErrors(submitError));
@@ -49,6 +58,8 @@ export function RegisterPage() {
             next.
           </p>
         </div>
+
+        <OAuthButtons action="Sign up" />
 
         {error ? <Alert tone="error">{error}</Alert> : null}
 

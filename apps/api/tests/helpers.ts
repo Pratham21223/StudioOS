@@ -136,15 +136,34 @@ export type RegisterOptions = {
   organizationName: string;
 };
 
-export async function registerUser(
+export async function registerPendingUser(
   client: ApiClient,
   options: RegisterOptions,
-): Promise<{ response: request.Response; body: AuthView }> {
+): Promise<{ response: request.Response; devCode: string }> {
   const response = await client.post("/api/v1/auth/register", {
     name: options.name ?? "Test User",
     email: options.email,
     password: options.password ?? PASSWORD,
     organizationName: options.organizationName,
+  });
+  return {
+    response,
+    devCode: (response.body as { devCode?: string }).devCode ?? "",
+  };
+}
+
+export async function registerUser(
+  client: ApiClient,
+  options: RegisterOptions,
+): Promise<{ response: request.Response; body: AuthView }> {
+  const pending = await registerPendingUser(client, options);
+  if (pending.response.status !== 202) {
+    return { response: pending.response, body: pending.response.body as AuthView };
+  }
+
+  const response = await client.post("/api/v1/auth/register/verify", {
+    email: options.email,
+    code: pending.devCode,
   });
   return { response, body: response.body as AuthView };
 }
@@ -168,7 +187,7 @@ export async function setupOrganization(
     organizationName,
   });
 
-  if (response.status !== 201) {
+  if (response.status !== 200) {
     throw new Error(`Failed to set up organization: ${JSON.stringify(response.body)}`);
   }
 
@@ -530,6 +549,6 @@ export async function uploadAssetRecord(
 
 export async function resetDatabase(): Promise<void> {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE TABLE "outbox_events", "notifications", "reviews", "asset_uploads", "assets", "audit_logs", "password_reset_tokens", "invitations", "sessions", "workflow_events", "tasks", "content_items", "project_memberships", "projects", "client_memberships", "clients", "organization_memberships", "organizations", "users" RESTART IDENTITY CASCADE',
+    'TRUNCATE TABLE "outbox_events", "notifications", "reviews", "asset_uploads", "assets", "audit_logs", "email_otp_codes", "oauth_accounts", "password_reset_tokens", "invitations", "sessions", "workflow_events", "tasks", "content_items", "project_memberships", "projects", "client_memberships", "clients", "organization_memberships", "organizations", "users" RESTART IDENTITY CASCADE',
   );
 }

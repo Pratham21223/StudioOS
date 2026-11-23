@@ -1,7 +1,8 @@
+import { randomInt } from "node:crypto";
 import type { Organization, OrganizationMembership, Prisma, User } from "@prisma/client";
 import { env } from "../../config/env.js";
 import { prisma } from "../../infrastructure/database/prisma.js";
-import { hashToken, randomToken } from "../../shared/crypto.js";
+import { hashToken, randomToken, safeEqual } from "../../shared/crypto.js";
 import { AppError, isUniqueConstraintError } from "../../shared/errors.js";
 import { hashPassword, verifyPassword } from "../../shared/password.js";
 import type { RequestMeta } from "../../shared/request-meta.js";
@@ -10,7 +11,10 @@ import type {
   LoginInput,
   RegisterInput,
   ResetPasswordInput,
+  ResendVerificationInput,
+  VerifyEmailInput,
 } from "./auth.validation.js";
+import { emailOtpRepository } from "./email-otp.repository.js";
 import { passwordResetRepository, sessionRepository } from "./session.repository.js";
 import { userRepository } from "../users/user.repository.js";
 import { clientMembershipRepository } from "../clients/client-membership.repository.js";
@@ -21,6 +25,9 @@ import { queueEmail } from "../notifications/notification.service.js";
 
 const SESSION_TTL_MS = env.SESSION_TTL_HOURS * 60 * 60 * 1000;
 const PASSWORD_RESET_TTL_MS = env.PASSWORD_RESET_TTL_MINUTES * 60 * 1000;
+const EMAIL_OTP_TTL_MS = env.EMAIL_OTP_TTL_MINUTES * 60 * 1000;
+const EMAIL_OTP_RESEND_MS = env.EMAIL_OTP_RESEND_SECONDS * 1000;
+const EMAIL_OTP_PURPOSE = "REGISTRATION" as const;
 
 let dummyHashPromise: Promise<string> | undefined;
 
@@ -38,6 +45,18 @@ function sessionExpiry(): Date {
   return new Date(Date.now() + SESSION_TTL_MS);
 }
 
+function generateOtpCode(): string {
+  return randomInt(0, 1_000_000).toString().padStart(6, "0");
+}
+
+/**
+ * OTPs are short numeric codes, so they are keyed with the server secret and
+ * scoped to the user. A database leak alone cannot be brute-forced offline.
+ */
+function hashOtpCode(userId: string, code: string): string {
+  return hashToken(`email-otp:${userId}:${code}`);
+}
+
 function slugify(value: string): string {
   const slug = value
     .normalize("NFKD")
@@ -48,7 +67,10 @@ function slugify(value: string): string {
   return slug || "workspace";
 }
 
-async function generateUniqueSlug(name: string, tx: Prisma.TransactionClient): Promise<string> {
+export async function generateUniqueSlug(
+  name: string,
+  tx: Prisma.TransactionClient,
+): Promise<string> {
   const base = slugify(name);
   for (let suffix = 0; suffix < 50; suffix += 1) {
     const candidate = suffix === 0 ? base : `${base.slice(0, 64)}-${suffix + 1}`.slice(0, 80);
@@ -58,26 +80,79 @@ async function generateUniqueSlug(name: string, tx: Prisma.TransactionClient): P
   return `${base.slice(0, 64)}-${Date.now().toString(36)}`;
 }
 
+export async function createWorkspaceWithAdmin(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  organizationName: string,
+): Promise<{ organization: Organization; membership: OrganizationMembership }> {
+  const slug = await generateUniqueSlug(organizationName, tx);
+  const organization = await tx.organization.create({
+    data: { name: organizationName, slug },
+  });
+
+  const membership = await tx.organizationMembership.create({
+    data: {
+      organizationId: organization.id,
+      userId,
+      role: "ADMIN",
+      status: "ACTIVE",
+    },
+  });
+
+  await recordAudit(tx, {
+    organizationId: organization.id,
+    actorId: userId,
+    action: "organization.created",
+    resourceType: "organization",
+    resourceId: organization.id,
+    metadata: { name: organization.name, slug: organization.slug },
+  });
+
+  return { organization, membership };
+}
+
+async function queueVerificationCode(
+  tx: Prisma.TransactionClient,
+  user: Pick<User, "id" | "name" | "email">,
+  code: string,
+  expiresAt: Date,
+): Promise<void> {
+  await emailOtpRepository.create(
+    {
+      userId: user.id,
+      purpose: EMAIL_OTP_PURPOSE,
+      codeHash: hashOtpCode(user.id, code),
+      expiresAt,
+    },
+    tx,
+  );
+
+  await queueEmail(tx, {
+    to: user.email,
+    subject: "Your StudioOS verification code",
+    text: `Hi ${user.name},\n\nYour StudioOS verification code is ${code}.\n\nEnter it to finish creating your account. The code expires in ${env.EMAIL_OTP_TTL_MINUTES} minutes.\n\nIf you did not create a StudioOS account, you can ignore this email.`,
+  });
+}
+
 export type RegisterResult = {
   user: User;
   organization: Organization;
   membership: OrganizationMembership;
-  sessionToken: string;
+  verificationCode: string;
 };
 
-export async function register(input: RegisterInput, meta: RequestMeta): Promise<RegisterResult> {
+export async function register(input: RegisterInput): Promise<RegisterResult> {
   const existing = await userRepository.findByEmail(input.email);
   if (existing) {
     throw AppError.conflict(
       "EMAIL_ALREADY_REGISTERED",
-      "An account with that email already exists. Sign in instead.",
+      "An account with that email already exists. Sign in or verify your email instead.",
     );
   }
 
   const passwordHash = await hashPassword(input.password);
-  const sessionToken = randomToken();
-  const tokenHash = hashToken(sessionToken);
-  const expiresAt = sessionExpiry();
+  const verificationCode = generateOtpCode();
+  const expiresAt = new Date(Date.now() + EMAIL_OTP_TTL_MS);
 
   try {
     return await prisma.$transaction(async (tx) => {
@@ -90,41 +165,15 @@ export async function register(input: RegisterInput, meta: RequestMeta): Promise
         tx,
       );
 
-      const slug = await generateUniqueSlug(input.organizationName, tx);
-      const organization = await tx.organization.create({
-        data: { name: input.organizationName, slug },
-      });
-
-      const membership = await tx.organizationMembership.create({
-        data: {
-          organizationId: organization.id,
-          userId: user.id,
-          role: "ADMIN",
-          status: "ACTIVE",
-        },
-      });
-
-      await sessionRepository.create(
-        {
-          userId: user.id,
-          tokenHash,
-          expiresAt,
-          ipAddress: meta.ipAddress ?? null,
-          userAgent: normalizeUserAgent(meta.userAgent),
-        },
+      const { organization, membership } = await createWorkspaceWithAdmin(
         tx,
+        user.id,
+        input.organizationName,
       );
 
-      await recordAudit(tx, {
-        organizationId: organization.id,
-        actorId: user.id,
-        action: "organization.created",
-        resourceType: "organization",
-        resourceId: organization.id,
-        metadata: { name: organization.name, slug: organization.slug },
-      });
+      await queueVerificationCode(tx, user, verificationCode, expiresAt);
 
-      return { user, organization, membership, sessionToken };
+      return { user, organization, membership, verificationCode };
     });
   } catch (error) {
     if (isUniqueConstraintError(error)) {
@@ -137,35 +186,102 @@ export async function register(input: RegisterInput, meta: RequestMeta): Promise
   }
 }
 
-export type LoginResult = {
+export type AuthSessionResult = {
   user: User;
   memberships: Awaited<ReturnType<typeof membershipRepository.listActiveForUser>>;
   clientMemberships: Awaited<ReturnType<typeof clientMembershipRepository.listActiveForUser>>;
   sessionToken: string;
 };
 
-export async function login(
-  input: LoginInput,
+export async function establishSession(
+  userId: string,
   meta: RequestMeta,
   previousSessionToken?: string | null,
-): Promise<LoginResult> {
-  const user = await userRepository.findByEmail(input.email);
-
-  if (!user) {
-    await verifyPassword(await getDummyHash(), input.password);
-    throw new AppError(401, "INVALID_CREDENTIALS", "Email or password is incorrect.");
-  }
-
-  const passwordValid = await verifyPassword(user.passwordHash, input.password);
-  if (!passwordValid || user.status !== "ACTIVE") {
-    throw new AppError(401, "INVALID_CREDENTIALS", "Email or password is incorrect.");
-  }
-
+): Promise<string> {
   const sessionToken = randomToken();
+
   await prisma.$transaction(async (tx) => {
     if (previousSessionToken) {
       await sessionRepository.deleteByTokenHash(hashToken(previousSessionToken), tx);
     }
+    await sessionRepository.create(
+      {
+        userId,
+        tokenHash: hashToken(sessionToken),
+        expiresAt: sessionExpiry(),
+        ipAddress: meta.ipAddress ?? null,
+        userAgent: normalizeUserAgent(meta.userAgent),
+      },
+      tx,
+    );
+  });
+
+  return sessionToken;
+}
+
+async function sessionResult(user: User, sessionToken: string): Promise<AuthSessionResult> {
+  const [memberships, clientMemberships] = await Promise.all([
+    membershipRepository.listActiveForUser(user.id),
+    clientMembershipRepository.listActiveForUser(user.id),
+  ]);
+  return { user, memberships, clientMemberships, sessionToken };
+}
+
+export async function verifyRegistrationEmail(
+  input: VerifyEmailInput,
+  meta: RequestMeta,
+): Promise<AuthSessionResult> {
+  const now = new Date();
+  const user = await userRepository.findByEmail(input.email);
+
+  if (!user || user.status !== "ACTIVE") {
+    throw AppError.badRequest(
+      "OTP_INVALID",
+      "That verification code is invalid or has expired. Request a new code.",
+    );
+  }
+
+  if (user.emailVerifiedAt) {
+    throw AppError.conflict(
+      "EMAIL_ALREADY_VERIFIED",
+      "This email is already verified. Sign in instead.",
+    );
+  }
+
+  const otp = await emailOtpRepository.findLatestActive(user.id, EMAIL_OTP_PURPOSE);
+  if (!otp || otp.expiresAt.getTime() <= now.getTime()) {
+    throw AppError.badRequest(
+      "OTP_EXPIRED",
+      "That verification code has expired. Request a new code.",
+    );
+  }
+
+  if (otp.attempts >= env.EMAIL_OTP_MAX_ATTEMPTS) {
+    throw new AppError(
+      429,
+      "OTP_ATTEMPTS_EXCEEDED",
+      "Too many incorrect attempts. Request a new verification code.",
+    );
+  }
+
+  if (!safeEqual(otp.codeHash, hashOtpCode(user.id, input.code))) {
+    await emailOtpRepository.incrementAttempts(otp.id);
+    throw AppError.badRequest("OTP_INVALID", "That verification code is not correct.");
+  }
+
+  const sessionToken = randomToken();
+  const verifiedUser = await prisma.$transaction(async (tx) => {
+    const claimed = await emailOtpRepository.claim(otp.id, now, tx);
+    if (claimed.count !== 1) {
+      throw AppError.badRequest(
+        "OTP_INVALID",
+        "That verification code is invalid or has expired. Request a new code.",
+      );
+    }
+
+    const updated = await userRepository.markEmailVerified(user.id, now, tx);
+    await emailOtpRepository.deleteActiveForUser(user.id, EMAIL_OTP_PURPOSE, tx);
+
     await sessionRepository.create(
       {
         userId: user.id,
@@ -176,13 +292,62 @@ export async function login(
       },
       tx,
     );
+
+    return updated;
   });
 
-  const [memberships, clientMemberships] = await Promise.all([
-    membershipRepository.listActiveForUser(user.id),
-    clientMembershipRepository.listActiveForUser(user.id),
-  ]);
-  return { user, memberships, clientMemberships, sessionToken };
+  return sessionResult(verifiedUser, sessionToken);
+}
+
+export async function resendRegistrationCode(
+  input: ResendVerificationInput,
+): Promise<{ user: User; verificationCode: string } | null> {
+  const user = await userRepository.findByEmail(input.email);
+  if (!user || user.status !== "ACTIVE" || user.emailVerifiedAt) return null;
+
+  const latest = await emailOtpRepository.findLatest(user.id, EMAIL_OTP_PURPOSE);
+  if (latest && Date.now() - latest.createdAt.getTime() < EMAIL_OTP_RESEND_MS) {
+    return null;
+  }
+
+  const verificationCode = generateOtpCode();
+  const expiresAt = new Date(Date.now() + EMAIL_OTP_TTL_MS);
+
+  await prisma.$transaction(async (tx) => {
+    await emailOtpRepository.deleteActiveForUser(user.id, EMAIL_OTP_PURPOSE, tx);
+    await queueVerificationCode(tx, user, verificationCode, expiresAt);
+  });
+
+  return { user, verificationCode };
+}
+
+export async function login(
+  input: LoginInput,
+  meta: RequestMeta,
+  previousSessionToken?: string | null,
+): Promise<AuthSessionResult> {
+  const user = await userRepository.findByEmail(input.email);
+
+  if (!user || !user.passwordHash) {
+    await verifyPassword(await getDummyHash(), input.password);
+    throw new AppError(401, "INVALID_CREDENTIALS", "Email or password is incorrect.");
+  }
+
+  const passwordValid = await verifyPassword(user.passwordHash, input.password);
+  if (!passwordValid || user.status !== "ACTIVE") {
+    throw new AppError(401, "INVALID_CREDENTIALS", "Email or password is incorrect.");
+  }
+
+  if (!user.emailVerifiedAt) {
+    throw new AppError(
+      403,
+      "EMAIL_NOT_VERIFIED",
+      "Verify your email address before signing in. We can send you a new code.",
+    );
+  }
+
+  const sessionToken = await establishSession(user.id, meta, previousSessionToken);
+  return sessionResult(user, sessionToken);
 }
 
 export async function logout(sessionToken: string | null): Promise<void> {
@@ -194,6 +359,12 @@ export async function getMe(userId: string) {
   const user = await userRepository.findById(userId);
   if (!user || user.status !== "ACTIVE") {
     throw new AppError(401, "SESSION_EXPIRED", "Your session has expired. Sign in again.");
+  }
+  if (!user.emailVerifiedAt) {
+    throw AppError.unauthorized(
+      "EMAIL_NOT_VERIFIED",
+      "Verify your email address before continuing.",
+    );
   }
 
   const [memberships, clientMemberships] = await Promise.all([
@@ -267,6 +438,11 @@ export async function resetPassword(input: ResetPasswordInput): Promise<void> {
     }
 
     await userRepository.updatePassword(record.userId, passwordHash, tx);
+    // Receiving the reset link proves control of the mailbox, so an account
+    // that never completed OTP verification can be considered verified.
+    if (!user.emailVerifiedAt) {
+      await userRepository.markEmailVerified(record.userId, now, tx);
+    }
     await sessionRepository.deleteAllForUser(record.userId, tx);
     await passwordResetRepository.deleteUnusedForUser(record.userId, tx);
   });

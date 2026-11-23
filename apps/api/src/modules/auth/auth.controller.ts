@@ -18,6 +18,8 @@ import type {
   LoginInput,
   RegisterInput,
   ResetPasswordInput,
+  ResendVerificationInput,
+  VerifyEmailInput,
 } from "./auth.validation.js";
 
 function authSessionPayload(
@@ -40,21 +42,43 @@ export const csrf: RequestHandler = (req, res) => {
 };
 
 export const register: RequestHandler = async (req, res) => {
-  const result = await authService.register(req.body as RegisterInput, getRequestMeta(req));
+  const result = await authService.register(req.body as RegisterInput);
+  const devCode = env.DEV_LINKS_ENABLED && !env.isProduction ? result.verificationCode : undefined;
+
+  res.status(202).json({
+    message: "We sent a 6-digit verification code to your email.",
+    email: result.user.email,
+    expiresInMinutes: env.EMAIL_OTP_TTL_MINUTES,
+    resendAfterSeconds: env.EMAIL_OTP_RESEND_SECONDS,
+    ...(devCode ? { devCode } : {}),
+  });
+};
+
+export const verifyEmail: RequestHandler = async (req, res) => {
+  const result = await authService.verifyRegistrationEmail(
+    req.body as VerifyEmailInput,
+    getRequestMeta(req),
+  );
 
   setSessionCookie(res, result.sessionToken);
   const csrfToken = issueCsrfToken(req, res);
 
   res
-    .status(201)
-    .json(
-      authSessionPayload(
-        result.user,
-        [{ ...result.membership, organization: result.organization }],
-        [],
-        csrfToken,
-      ),
-    );
+    .status(200)
+    .json(authSessionPayload(result.user, result.memberships, result.clientMemberships, csrfToken));
+};
+
+export const resendVerification: RequestHandler = async (req, res) => {
+  const result = await authService.resendRegistrationCode(req.body as ResendVerificationInput);
+  const devCode =
+    result && env.DEV_LINKS_ENABLED && !env.isProduction ? result.verificationCode : undefined;
+
+  res.status(200).json({
+    message: "If that email is awaiting verification, a new code has been sent.",
+    expiresInMinutes: env.EMAIL_OTP_TTL_MINUTES,
+    resendAfterSeconds: env.EMAIL_OTP_RESEND_SECONDS,
+    ...(devCode ? { devCode } : {}),
+  });
 };
 
 export const login: RequestHandler = async (req, res) => {

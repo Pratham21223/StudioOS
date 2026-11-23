@@ -21,6 +21,15 @@ enum UserStatus {
   DEACTIVATED
 }
 
+enum EmailOtpPurpose {
+  REGISTRATION
+}
+
+enum OAuthProvider {
+  GOOGLE
+  GITHUB
+}
+
 enum OrgRole {
   ADMIN
   PROJECT_MANAGER
@@ -112,13 +121,14 @@ enum OutboxStatus {
 }
 
 model User {
-  id           String     @id @default(uuid()) @db.Uuid
-  name         String     @db.VarChar(120)
-  email        String     @unique @db.VarChar(320)
-  passwordHash String     @map("password_hash") @db.VarChar(255)
-  status       UserStatus @default(ACTIVE)
-  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id              String     @id @default(uuid()) @db.Uuid
+  name            String     @db.VarChar(120)
+  email           String     @unique @db.VarChar(320)
+  passwordHash    String?    @map("password_hash") @db.VarChar(255)
+  emailVerifiedAt DateTime?  @map("email_verified_at") @db.Timestamptz(3)
+  status          UserStatus @default(ACTIVE)
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   memberships          OrganizationMembership[]
   clientMemberships    ClientMembership[]
@@ -134,6 +144,8 @@ model User {
   sessions             Session[]
   invitationsSent      Invitation[]             @relation("InvitationInvitedBy")
   passwordResetTokens  PasswordResetToken[]
+  emailOtpCodes        EmailOtpCode[]
+  oauthAccounts        OAuthAccount[]
   auditLogs            AuditLog[]
 
   @@map("users")
@@ -520,6 +532,39 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_tokens")
+}
+
+model EmailOtpCode {
+  id         String          @id @default(uuid()) @db.Uuid
+  userId     String          @map("user_id") @db.Uuid
+  purpose    EmailOtpPurpose @default(REGISTRATION)
+  codeHash   String          @map("code_hash") @db.VarChar(64)
+  attempts   Int             @default(0)
+  expiresAt  DateTime        @map("expires_at") @db.Timestamptz(3)
+  consumedAt DateTime?       @map("consumed_at") @db.Timestamptz(3)
+  createdAt  DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose, createdAt])
+  @@index([expiresAt])
+  @@map("email_otp_codes")
+}
+
+model OAuthAccount {
+  id                String        @id @default(uuid()) @db.Uuid
+  userId            String        @map("user_id") @db.Uuid
+  provider          OAuthProvider
+  providerAccountId String        @map("provider_account_id") @db.VarChar(255)
+  email             String?       @db.VarChar(320)
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("oauth_accounts")
 }
 
 model AuditLog {

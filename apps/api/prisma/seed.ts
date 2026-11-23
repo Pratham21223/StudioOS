@@ -1279,6 +1279,7 @@ async function main(): Promise<void> {
   }
 
   const passwordHash = await hashPassword(env.SEED_PASSWORD);
+  const emailVerifiedAt = new Date();
 
   const summary = await prisma.$transaction(async (tx) => {
     const organization = await tx.organization.upsert({
@@ -1291,12 +1292,13 @@ async function main(): Promise<void> {
     for (const user of INTERNAL_USERS) {
       const record = await tx.user.upsert({
         where: { email: user.email },
-        update: { name: user.name, passwordHash, status: "ACTIVE" },
+        update: { name: user.name, passwordHash, status: "ACTIVE", emailVerifiedAt },
         create: {
           name: user.name,
           email: user.email,
           passwordHash,
           status: "ACTIVE",
+          emailVerifiedAt,
         },
       });
       userIds[user.key] = record.id;
@@ -1319,12 +1321,13 @@ async function main(): Promise<void> {
 
     const clientUser = await tx.user.upsert({
       where: { email: CLIENT_USER.email },
-      update: { name: CLIENT_USER.name, passwordHash, status: "ACTIVE" },
+      update: { name: CLIENT_USER.name, passwordHash, status: "ACTIVE", emailVerifiedAt },
       create: {
         name: CLIENT_USER.name,
         email: CLIENT_USER.email,
         passwordHash,
         status: "ACTIVE",
+        emailVerifiedAt,
       },
     });
     userIds[CLIENT_USER.key] = clientUser.id;

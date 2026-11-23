@@ -33,6 +33,11 @@ const ResetPasswordPage = lazy(() =>
     default: module.ResetPasswordPage,
   })),
 );
+const VerifyEmailPage = lazy(() =>
+  import("../features/auth/VerifyEmailPage").then((module) => ({
+    default: module.VerifyEmailPage,
+  })),
+);
 const MembersPage = lazy(() =>
   import("../features/organizations/MembersPage").then((module) => ({
     default: module.MembersPage,
@@ -302,6 +307,7 @@ export function App() {
             </SessionRedirect>
           }
         />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/password/reset" element={<ResetPasswordPage />} />
         <Route path="/invitations/:token" element={<AcceptInvitationPage />} />

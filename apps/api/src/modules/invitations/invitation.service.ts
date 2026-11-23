@@ -366,10 +366,17 @@ export async function acceptInvitation(
           "This account is not active. Contact your workspace administrator.",
         );
       }
-      throw AppError.conflict(
-        "SIGN_IN_REQUIRED",
-        "An account already exists for this email. Sign in to accept the invitation.",
-      );
+      // An unverified account can accept because the invitation token was
+      // delivered to the same mailbox, which proves ownership.
+      if (existingUser.emailVerifiedAt) {
+        throw AppError.conflict(
+          "SIGN_IN_REQUIRED",
+          "An account already exists for this email. Sign in to accept the invitation.",
+        );
+      }
+      if (input.password) {
+        newPasswordHash = await hashPassword(input.password);
+      }
     }
 
     if (!input.name || !input.password) {
@@ -397,6 +404,12 @@ export async function acceptInvitation(
       user = currentUser;
     } else if (existingUser) {
       user = existingUser;
+      if (!user.emailVerifiedAt) {
+        user = await userRepository.markEmailVerified(user.id, now, tx);
+      }
+      if (newPasswordHash) {
+        user = await userRepository.updatePassword(user.id, newPasswordHash, tx);
+      }
     } else {
       if (!input.name || !newPasswordHash) {
         throw AppError.unauthorized(
@@ -409,6 +422,7 @@ export async function acceptInvitation(
           name: input.name,
           email: invitation.email,
           passwordHash: newPasswordHash,
+          emailVerifiedAt: now,
         },
         tx,
       );

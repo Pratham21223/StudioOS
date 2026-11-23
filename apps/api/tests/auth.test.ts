@@ -8,39 +8,71 @@ import {
   app,
   createApiClient,
   extractResetToken,
+  registerPendingUser,
   registerUser,
   resetDatabase,
   setupOrganization,
 } from "./helpers.js";
+
+function incorrectCode(code: string): string {
+  return code === "000000" ? "000001" : "000000";
+}
 
 describe("authentication", () => {
   beforeEach(async () => {
     await resetDatabase();
   });
 
-  it("registers a user, organization, admin membership, and session atomically", async () => {
+  it("creates a pending account, then verifies the OTP and opens a session", async () => {
     const client = await createApiClient();
-    const { response, body } = await registerUser(client, {
+    const pending = await registerPendingUser(client, {
       name: "Ada Admin",
       email: "Ada@Example.com",
       organizationName: "Ada Studio",
     });
 
-    expect(response.status).toBe(201);
-    expect(body.user.email).toBe("ada@example.com");
-    expect(body.memberships).toHaveLength(1);
-    expect(body.memberships[0]!.role).toBe("ADMIN");
-    expect(body.memberships[0]!.status).toBe("ACTIVE");
-    expect(body.memberships[0]!.organization.name).toBe("Ada Studio");
-    expect(body.memberships[0]!.organization.slug).toBe("ada-studio");
-    expect(body.csrfToken).toBeTruthy();
+    expect(pending.response.status).toBe(202);
+    expect(pending.response.body.email).toBe("ada@example.com");
+    expect(pending.response.body.devCode).toMatch(/^\d{6}$/);
+    expect(pending.response.body.csrfToken).toBeUndefined();
+
+    // No session exists until the emailed code is verified.
+    expect((await client.get("/api/v1/auth/me")).status).toBe(401);
 
     const dbUser = await prisma.user.findUnique({
       where: { email: "ada@example.com" },
     });
     expect(dbUser).not.toBeNull();
     expect(dbUser!.passwordHash).not.toBe(PASSWORD);
-    expect(dbUser!.passwordHash.startsWith("$argon2id$")).toBe(true);
+    expect(dbUser!.passwordHash).toMatch(/^\$argon2id\$/);
+    expect(dbUser!.emailVerifiedAt).toBeNull();
+
+    const otp = await prisma.emailOtpCode.findFirst({ where: { userId: dbUser!.id } });
+    expect(otp).not.toBeNull();
+    expect(otp!.codeHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(otp!.codeHash).not.toBe(pending.devCode);
+    expect(otp!.consumedAt).toBeNull();
+
+    const queuedEmail = await prisma.outboxEvent.findFirst({ where: { type: "EMAIL" } });
+    expect(queuedEmail).not.toBeNull();
+
+    const verifyResponse = await client.post("/api/v1/auth/register/verify", {
+      email: "ada@example.com",
+      code: pending.devCode,
+    });
+    expect(verifyResponse.status).toBe(200);
+    expect(verifyResponse.body.user.email).toBe("ada@example.com");
+    expect(verifyResponse.body.user.emailVerified).toBe(true);
+    expect(verifyResponse.body.memberships).toHaveLength(1);
+    expect(verifyResponse.body.memberships[0]!.role).toBe("ADMIN");
+    expect(verifyResponse.body.memberships[0]!.organization.name).toBe("Ada Studio");
+    expect(verifyResponse.body.memberships[0]!.organization.slug).toBe("ada-studio");
+    expect(verifyResponse.body.csrfToken).toBeTruthy();
+
+    const verifiedUser = await prisma.user.findUnique({
+      where: { email: "ada@example.com" },
+    });
+    expect(verifiedUser!.emailVerifiedAt).not.toBeNull();
 
     const organizations = await prisma.organization.findMany();
     expect(organizations).toHaveLength(1);
@@ -57,6 +89,104 @@ describe("authentication", () => {
     const meResponse = await client.get("/api/v1/auth/me").expect(200);
     expect(meResponse.body.user.email).toBe("ada@example.com");
     expect(meResponse.body.memberships[0].organization.slug).toBe("ada-studio");
+  });
+
+  it("rejects unverified logins and invalid or reused OTP codes", async () => {
+    const client = await createApiClient();
+    const pending = await registerPendingUser(client, {
+      email: "verify@example.com",
+      organizationName: "Verify Studio",
+    });
+
+    const unverifiedLogin = await client.post("/api/v1/auth/login", {
+      email: "verify@example.com",
+      password: PASSWORD,
+    });
+    expect(unverifiedLogin.status).toBe(403);
+    expect(unverifiedLogin.body.error.code).toBe("EMAIL_NOT_VERIFIED");
+
+    const wrongCode = await client.post("/api/v1/auth/register/verify", {
+      email: "verify@example.com",
+      code: incorrectCode(pending.devCode),
+    });
+    expect(wrongCode.status).toBe(400);
+    expect(wrongCode.body.error.code).toBe("OTP_INVALID");
+
+    const dbUser = await prisma.user.findUnique({ where: { email: "verify@example.com" } });
+    expect(dbUser!.emailVerifiedAt).toBeNull();
+    const attempts = await prisma.emailOtpCode.findFirst({ where: { userId: dbUser!.id } });
+    expect(attempts!.attempts).toBe(1);
+
+    const verified = await client.post("/api/v1/auth/register/verify", {
+      email: "verify@example.com",
+      code: pending.devCode,
+    });
+    expect(verified.status).toBe(200);
+
+    const secondClient = await createApiClient();
+    const reused = await secondClient.post("/api/v1/auth/register/verify", {
+      email: "verify@example.com",
+      code: pending.devCode,
+    });
+    expect(reused.status).toBe(409);
+    expect(reused.body.error.code).toBe("EMAIL_ALREADY_VERIFIED");
+  });
+
+  it("resends a fresh OTP and invalidates the previous code", async () => {
+    const client = await createApiClient();
+    const pending = await registerPendingUser(client, {
+      email: "resend@example.com",
+      organizationName: "Resend Studio",
+    });
+
+    // Cooldown suppresses immediate resends, so expire the stored record first.
+    await prisma.emailOtpCode.updateMany({
+      where: { consumedAt: null },
+      data: { createdAt: new Date(Date.now() - 5 * 60 * 1000) },
+    });
+
+    const resent = await client.post("/api/v1/auth/register/resend", {
+      email: "resend@example.com",
+    });
+    expect(resent.status).toBe(200);
+    expect(resent.body.devCode).toMatch(/^\d{6}$/);
+    expect(resent.body.devCode).not.toBe(pending.devCode);
+
+    const oldCode = await client.post("/api/v1/auth/register/verify", {
+      email: "resend@example.com",
+      code: pending.devCode,
+    });
+    expect(oldCode.status).toBe(400);
+    expect(oldCode.body.error.code).toBe("OTP_INVALID");
+
+    const verified = await client.post("/api/v1/auth/register/verify", {
+      email: "resend@example.com",
+      code: resent.body.devCode,
+    });
+    expect(verified.status).toBe(200);
+  });
+
+  it("locks an OTP after too many incorrect attempts", async () => {
+    const client = await createApiClient();
+    const pending = await registerPendingUser(client, {
+      email: "attempts@example.com",
+      organizationName: "Attempts Studio",
+    });
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const wrong = await client.post("/api/v1/auth/register/verify", {
+        email: "attempts@example.com",
+        code: incorrectCode(pending.devCode),
+      });
+      expect(wrong.status).toBe(400);
+    }
+
+    const blocked = await client.post("/api/v1/auth/register/verify", {
+      email: "attempts@example.com",
+      code: pending.devCode,
+    });
+    expect(blocked.status).toBe(429);
+    expect(blocked.body.error.code).toBe("OTP_ATTEMPTS_EXCEEDED");
   });
 
   it("sets a HTTP-only, SameSite session cookie", async () => {

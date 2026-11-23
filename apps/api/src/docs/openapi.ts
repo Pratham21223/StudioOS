@@ -256,13 +256,91 @@ export const openApiSpec = {
     "/auth/register": {
       post: {
         tags: ["Auth"],
-        summary: "Register a user and organization",
+        summary: "Create an account and send a 6-digit verification code",
         security: [],
         requestBody: {
           required: true,
           content: { "application/json": { schema: { type: "object" } } },
         },
-        responses: { "201": json("Session created"), "400": error("Validation error") },
+        responses: {
+          "202": json("Verification code queued"),
+          "400": error("Validation error"),
+          "409": error("Email already registered"),
+        },
+      },
+    },
+    "/auth/register/verify": {
+      post: {
+        tags: ["Auth"],
+        summary: "Verify the signup OTP and open a session",
+        security: [],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { type: "object" } } },
+        },
+        responses: {
+          "200": json("Email verified and session created"),
+          "400": error("Invalid or expired code"),
+          "429": error("Attempts or rate limit exceeded"),
+        },
+      },
+    },
+    "/auth/register/resend": {
+      post: {
+        tags: ["Auth"],
+        summary: "Resend the signup verification code",
+        security: [],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { type: "object" } } },
+        },
+        responses: { "200": json("Generic success"), "429": error("Rate limited") },
+      },
+    },
+    "/auth/oauth/providers": {
+      get: {
+        tags: ["Auth"],
+        summary: "List configured OAuth providers",
+        security: [],
+        responses: { "200": json("Enabled providers") },
+      },
+    },
+    "/auth/oauth/{provider}": {
+      get: {
+        tags: ["Auth"],
+        summary: "Start OAuth sign-in",
+        security: [],
+        parameters: [
+          {
+            name: "provider",
+            in: "path",
+            required: true,
+            schema: { type: "string", enum: ["google", "github"] },
+          },
+        ],
+        responses: {
+          "302": { description: "Redirect to the provider" },
+          "404": error("Provider not configured"),
+        },
+      },
+    },
+    "/auth/oauth/{provider}/callback": {
+      get: {
+        tags: ["Auth"],
+        summary: "OAuth callback",
+        security: [],
+        parameters: [
+          {
+            name: "provider",
+            in: "path",
+            required: true,
+            schema: { type: "string", enum: ["google", "github"] },
+          },
+        ],
+        responses: {
+          "302": { description: "Redirect to the web app with a session cookie" },
+          "404": error("Provider not configured"),
+        },
       },
     },
     "/auth/login": {

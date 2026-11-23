@@ -3,10 +3,12 @@ import request from "supertest";
 import { prisma } from "../src/infrastructure/database/prisma.js";
 import { hashToken } from "../src/shared/crypto.js";
 import {
+  NEW_PASSWORD,
   PASSWORD,
   app,
   createApiClient,
   inviteMember,
+  registerPendingUser,
   resetDatabase,
   setupOrganization,
 } from "./helpers.js";
@@ -169,6 +171,43 @@ describe("organization invitations", () => {
       where: { id: otherInvite.invitation.id },
     });
     expect(mismatchStored?.acceptedAt).toBeNull();
+  });
+
+  it("verifies a pending signup when the invitation is accepted", async () => {
+    const alpha = await setupOrganization("Alpha Studio", "alpha@example.com");
+    const pendingClient = await createApiClient();
+    await registerPendingUser(pendingClient, {
+      email: "pending@example.com",
+      organizationName: "Pending Studio",
+    });
+
+    const invite = await inviteMember(
+      alpha.client,
+      alpha.organization.id,
+      "pending@example.com",
+      "PRODUCER",
+    );
+    expect(invite.response.status).toBe(201);
+
+    const client = await createApiClient();
+    const accepted = await client.post("/api/v1/invitations/accept", {
+      token: invite.token,
+      name: "Pending Person",
+      password: NEW_PASSWORD,
+    });
+    expect(accepted.status).toBe(200);
+    expect(accepted.body.user.email).toBe("pending@example.com");
+    expect(accepted.body.user.emailVerified).toBe(true);
+
+    const user = await prisma.user.findUnique({ where: { email: "pending@example.com" } });
+    expect(user!.emailVerifiedAt).not.toBeNull();
+
+    const login = await createApiClient();
+    const loginResponse = await login.post("/api/v1/auth/login", {
+      email: "pending@example.com",
+      password: NEW_PASSWORD,
+    });
+    expect(loginResponse.status).toBe(200);
   });
 
   it("restricts invitation creation to admins and invitation listing to members.view roles", async () => {

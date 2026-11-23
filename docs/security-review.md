@@ -17,6 +17,8 @@ deployment configuration.
 | Area | Control | Evidence |
 |---|---|---|
 | Passwords | Argon2id, 12+ chars, generic login errors, dummy hash | Auth tests |
+| Signup verification | 6-digit OTP hashed with HMAC and scoped to the user, 10-minute expiry, 5-attempt cap, resend cooldown, single-use claim, no session before verification | Auth tests |
+| OAuth | Passport Google/GitHub strategies, HTTP-only state cookie validated on callback, verified provider email required, account links stored separately | OAuth tests |
 | Sessions | Opaque token, HMAC hash at rest, HTTP-only/SameSite cookie, rotation on login | Auth tests |
 | CSRF | Double-submit cookie and header on unsafe methods | Auth/API tests |
 | Tenant isolation | URL org is a selector; active membership re-resolved per request; 404 for inaccessible tenants | Tenancy tests |
@@ -33,7 +35,7 @@ deployment configuration.
 | Input | Zod bodies/params/query; Prisma parameterization; 1 MB JSON limit | Suite |
 | Headers/CORS | Helmet, narrow origin allowlist, secure web headers in nginx | Health tests |
 | Secrets | `.env` ignored; production example contains placeholders only | Repository review |
-| Dev-only links | Invite/reset URLs hidden unless `DEV_LINKS_ENABLED=true` and non-production | Config review |
+| Dev-only links/codes | Invite/reset URLs and signup OTP codes hidden unless `DEV_LINKS_ENABLED=true` and non-production | Config review |
 | API docs | Swagger/OpenAPI routes disabled unless `API_DOCS_ENABLED=true` | App bootstrap |
 | Audit | Security-relevant writes audited in the same transaction | Audit tests |
 | Browser E2E | Playwright smoke suite for internal workspace, client portal, mobile overflow | `npm run test:e2e` |

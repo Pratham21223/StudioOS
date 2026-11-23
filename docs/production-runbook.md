@@ -73,6 +73,8 @@ The same images can run on Vercel instead of a Docker host:
    | `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Bucket credentials |
    | `S3_ENDPOINT` | Set for R2/MinIO/Wasabi/Backblaze; leave empty for AWS S3 |
    | `EMAIL_API_KEY`, `EMAIL_FROM` | Resend key and a sender on the verified domain |
+   | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL` | Optional Google OAuth app; callback is `${API_BASE_URL}/auth/oauth/google/callback` |
+   | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_CALLBACK_URL` | Optional GitHub OAuth app; callback is `${API_BASE_URL}/auth/oauth/github/callback` |
    | `VITE_API_URL` | `/api/v1` |
    | `PORT` | `4000` |
    | `TRUST_PROXY` | `true` |

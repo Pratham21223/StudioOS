@@ -12,11 +12,26 @@ export const userRepository = {
     return db.user.findUnique({ where: { id } });
   },
 
-  create(data: { name: string; email: string; passwordHash: string }, db: DbClient = prisma) {
+  create(
+    data: {
+      name: string;
+      email: string;
+      passwordHash?: string | null;
+      emailVerifiedAt?: Date | null;
+    },
+    db: DbClient = prisma,
+  ) {
     return db.user.create({ data });
   },
 
   updatePassword(userId: string, passwordHash: string, db: DbClient = prisma) {
     return db.user.update({ where: { id: userId }, data: { passwordHash } });
+  },
+
+  markEmailVerified(userId: string, verifiedAt: Date, db: DbClient = prisma) {
+    return db.user.update({
+      where: { id: userId },
+      data: { emailVerifiedAt: verifiedAt },
+    });
   },
 };

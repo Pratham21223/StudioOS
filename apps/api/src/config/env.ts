@@ -54,9 +54,19 @@ const envSchema = z.object({
   SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(720).default(168),
   PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().min(5).max(1440).default(60),
   INVITATION_TTL_HOURS: z.coerce.number().int().min(1).max(720).default(168),
+  EMAIL_OTP_TTL_MINUTES: z.coerce.number().int().min(1).max(60).default(10),
+  EMAIL_OTP_RESEND_SECONDS: z.coerce.number().int().min(10).max(600).default(60),
+  EMAIL_OTP_MAX_ATTEMPTS: z.coerce.number().int().min(3).max(20).default(5),
 
   INVITATION_BASE_URL: z.string().url(),
   PASSWORD_RESET_BASE_URL: z.string().url(),
+
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_CALLBACK_URL: optionalUrl,
+  GITHUB_CLIENT_ID: z.string().optional(),
+  GITHUB_CLIENT_SECRET: z.string().optional(),
+  GITHUB_CALLBACK_URL: optionalUrl,
 
   S3_REGION: z.string().optional(),
   S3_BUCKET: z.string().optional(),

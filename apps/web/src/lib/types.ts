@@ -27,6 +27,7 @@ export type User = {
   name: string;
   email: string;
   status: "ACTIVE" | "DEACTIVATED";
+  emailVerified: boolean;
   createdAt: string;
 };
 
@@ -77,6 +78,30 @@ export type MeResponse = {
 
 export type AuthResponse = MeResponse & {
   csrfToken: string;
+};
+
+export type RegisterPendingResponse = {
+  message: string;
+  email: string;
+  expiresInMinutes: number;
+  resendAfterSeconds: number;
+  devCode?: string;
+};
+
+export type ResendVerificationResponse = {
+  message: string;
+  expiresInMinutes: number;
+  resendAfterSeconds: number;
+  devCode?: string;
+};
+
+export type OAuthProviderSummary = {
+  id: "google" | "github";
+  label: string;
+};
+
+export type OAuthProvidersResponse = {
+  providers: OAuthProviderSummary[];
 };
 
 export type Member = {

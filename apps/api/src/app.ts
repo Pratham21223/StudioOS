@@ -2,6 +2,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
+import passport from "passport";
 import swaggerUi from "swagger-ui-express";
 import { env } from "./config/env.js";
 import { openApiSpec } from "./docs/openapi.js";
@@ -9,6 +10,7 @@ import { csrfProtection } from "./middleware/csrf.js";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
 import { requestContext } from "./middleware/request-context.js";
 import { healthRouter } from "./modules/health/health.routes.js";
+import { configureOAuthStrategies } from "./modules/auth/oauth.strategies.js";
 import { apiRouter } from "./routes.js";
 
 export function createApp(): express.Express {
@@ -34,6 +36,8 @@ export function createApp(): express.Express {
   app.use(express.json({ limit: "1mb" }));
   app.use(cookieParser());
   app.use(csrfProtection);
+  configureOAuthStrategies();
+  app.use(passport.initialize());
 
   app.get("/", (_req, res) => {
     res.status(200).json({

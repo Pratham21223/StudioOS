@@ -20,7 +20,7 @@ async function resolveSession(token: string): Promise<AuthContext | null> {
     return null;
   }
 
-  if (session.user.status !== "ACTIVE") return null;
+  if (session.user.status !== "ACTIVE" || !session.user.emailVerifiedAt) return null;
 
   if (Date.now() - session.lastUsedAt.getTime() > TOUCH_INTERVAL_MS) {
     void prisma.session

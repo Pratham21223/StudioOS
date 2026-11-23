@@ -71,6 +71,9 @@ const MINUTE = 60 * 1000;
 
 export const loginLimiter = makeLimiter(20, 15 * MINUTE, "login");
 export const registerLimiter = makeLimiter(5, 60 * MINUTE, "register");
+export const otpVerifyLimiter = makeLimiter(10, 15 * MINUTE, "otp-verify");
+export const otpResendLimiter = makeLimiter(5, 15 * MINUTE, "otp-resend");
+export const oauthLimiter = makeLimiter(30, 15 * MINUTE, "oauth");
 export const passwordResetLimiter = makeLimiter(5, 15 * MINUTE, "password-reset");
 export const invitationAcceptLimiter = makeLimiter(20, 15 * MINUTE, "invitation-accept");
 export const invitationCreateLimiter = makeLimiter(30, 60 * MINUTE, "invitation-create");

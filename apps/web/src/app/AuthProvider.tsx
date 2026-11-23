@@ -14,6 +14,8 @@ import type {
   ClientMembershipSummary,
   MeResponse,
   Membership,
+  RegisterPendingResponse,
+  ResendVerificationResponse,
   User,
 } from "../lib/types";
 
@@ -27,6 +29,11 @@ export type RegisterInput = {
   email: string;
   password: string;
   organizationName: string;
+};
+
+export type VerifyEmailInput = {
+  email: string;
+  code: string;
 };
 
 export type AcceptInvitationInput = {
@@ -43,11 +50,21 @@ type AuthContextValue = {
   bootstrapError: string | null;
   retryBootstrap: () => Promise<void>;
   login: (input: LoginInput) => Promise<string | null>;
-  register: (input: RegisterInput) => Promise<string | null>;
+  register: (input: RegisterInput) => Promise<RegisterPendingResponse>;
+  verifyEmail: (input: VerifyEmailInput) => Promise<string | null>;
+  resendVerification: (email: string) => Promise<ResendVerificationResponse>;
   acceptInvitation: (input: AcceptInvitationInput) => Promise<string | null>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 };
+
+function destinationFor(
+  memberships: Membership[],
+  clientMemberships: ClientMembershipSummary[],
+): string | null {
+  if (memberships[0]) return `/orgs/${memberships[0].organization.id}`;
+  return clientMemberships.length > 0 ? "/portal" : null;
+}
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -101,18 +118,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(response.user);
     setMemberships(response.memberships);
     setClientMemberships(response.clientMemberships);
-    if (response.memberships[0]) {
-      return `/orgs/${response.memberships[0].organization.id}`;
-    }
-    return response.clientMemberships.length > 0 ? "/portal" : null;
+    return destinationFor(response.memberships, response.clientMemberships);
   }, []);
 
   const register = useCallback(async (input: RegisterInput) => {
-    const response = await api.post<AuthResponse>("/auth/register", input);
+    return api.post<RegisterPendingResponse>("/auth/register", input);
+  }, []);
+
+  const verifyEmail = useCallback(async (input: VerifyEmailInput) => {
+    const response = await api.post<AuthResponse>("/auth/register/verify", input);
     setUser(response.user);
     setMemberships(response.memberships);
     setClientMemberships(response.clientMemberships);
-    return response.memberships[0] ? `/orgs/${response.memberships[0].organization.id}` : null;
+    return destinationFor(response.memberships, response.clientMemberships);
+  }, []);
+
+  const resendVerification = useCallback(async (email: string) => {
+    return api.post<ResendVerificationResponse>("/auth/register/resend", { email });
   }, []);
 
   const acceptInvitation = useCallback(async (input: AcceptInvitationInput) => {
@@ -156,6 +178,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       retryBootstrap: bootstrap,
       login,
       register,
+      verifyEmail,
+      resendVerification,
       acceptInvitation,
       logout,
       refresh,
@@ -169,6 +193,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       bootstrap,
       login,
       register,
+      verifyEmail,
+      resendVerification,
       acceptInvitation,
       logout,
       refresh,

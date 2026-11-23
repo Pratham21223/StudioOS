@@ -3,12 +3,22 @@ import { env } from "../config/env.js";
 import { randomToken } from "../shared/crypto.js";
 
 const SESSION_MAX_AGE_MS = env.SESSION_TTL_HOURS * 60 * 60 * 1000;
+const OAUTH_STATE_COOKIE_NAME = "studioos_oauth_state";
+const OAUTH_STATE_MAX_AGE_MS = 10 * 60 * 1000;
+const OAUTH_STATE_COOKIE_PATH = "/api/v1/auth/oauth";
 
 const baseCookieOptions: CookieOptions = {
   httpOnly: true,
   secure: env.isProduction,
   sameSite: "lax",
   path: "/",
+};
+
+const oauthStateCookieOptions: CookieOptions = {
+  httpOnly: true,
+  secure: env.isProduction,
+  sameSite: "lax",
+  path: OAUTH_STATE_COOKIE_PATH,
 };
 
 export function getSessionToken(req: Request): string | null {
@@ -46,4 +56,26 @@ export function issueCsrfToken(req: Request, res: Response): string {
 export function clearAuthCookies(res: Response): void {
   res.clearCookie(env.SESSION_COOKIE_NAME, baseCookieOptions);
   res.clearCookie(env.CSRF_COOKIE_NAME, { ...baseCookieOptions, httpOnly: false });
+}
+
+export function setOAuthStateCookie(res: Response, provider: string, state: string): void {
+  res.cookie(OAUTH_STATE_COOKIE_NAME, `${provider}:${state}`, {
+    ...oauthStateCookieOptions,
+    maxAge: OAUTH_STATE_MAX_AGE_MS,
+  });
+}
+
+export function readOAuthStateCookie(req: Request): { provider: string; state: string } | null {
+  const raw = req.cookies?.[OAUTH_STATE_COOKIE_NAME];
+  if (typeof raw !== "string") return null;
+  const separator = raw.indexOf(":");
+  if (separator <= 0) return null;
+  const provider = raw.slice(0, separator);
+  const state = raw.slice(separator + 1);
+  if (!provider || !state) return null;
+  return { provider, state };
+}
+
+export function clearOAuthStateCookie(res: Response): void {
+  res.clearCookie(OAUTH_STATE_COOKIE_NAME, oauthStateCookieOptions);
 }

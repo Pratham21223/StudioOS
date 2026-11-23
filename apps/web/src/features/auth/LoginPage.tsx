@@ -3,9 +3,19 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { AuthLayout } from "../../components/AuthLayout";
 import { Alert, Button, FormField, Input, PasswordInput } from "../../components/ui";
-import { getErrorMessage, getFieldErrors } from "../../lib/api";
+import { getErrorMessage, getFieldErrors, isApiError } from "../../lib/api";
 import { safeNextPath } from "../../lib/utils";
 import { useAuth } from "../../app/AuthProvider";
+import { OAuthButtons } from "./OAuthButtons";
+
+const OAUTH_ERROR_MESSAGES: Record<string, string> = {
+  OAUTH_STATE_INVALID: "That sign-in attempt expired. Please try again.",
+  OAUTH_PROVIDER_UNAVAILABLE: "That sign-in provider is not configured.",
+  OAUTH_EMAIL_UNAVAILABLE: "Your provider did not share a verified email address.",
+  OAUTH_EMAIL_UNVERIFIED: "Your provider email is not verified. Use another sign-in method.",
+  OAUTH_FAILED: "We could not complete sign-in with that provider. Please try again.",
+  ACCOUNT_DEACTIVATED: "That account is deactivated. Contact your workspace administrator.",
+};
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -16,6 +26,7 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const oauthError = searchParams.get("oauthError");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -30,6 +41,10 @@ export function LoginPage() {
         replace: true,
       });
     } catch (submitError) {
+      if (isApiError(submitError) && submitError.code === "EMAIL_NOT_VERIFIED") {
+        navigate(`/verify-email?email=${encodeURIComponent(email)}`, { replace: true });
+        return;
+      }
       setError(getErrorMessage(submitError));
       setFieldErrors(getFieldErrors(submitError));
     } finally {
@@ -50,7 +65,16 @@ export function LoginPage() {
           </p>
         </div>
 
-        {error ? <Alert tone="error">{error}</Alert> : null}
+        {error ? (
+          <Alert tone="error">{error}</Alert>
+        ) : oauthError ? (
+          <Alert tone="error">
+            {OAUTH_ERROR_MESSAGES[oauthError] ??
+              "We could not complete sign-in with that provider. Please try again."}
+          </Alert>
+        ) : null}
+
+        <OAuthButtons action="Continue" />
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           <FormField label="Email address" htmlFor="email" error={fieldErrors.email}>
