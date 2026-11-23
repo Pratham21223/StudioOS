@@ -121,7 +121,10 @@ function runVercel(args, input) {
     stdio: ["pipe", "pipe", "pipe"],
   });
   if (result.status !== 0) {
-    const detail = (result.stderr || result.stdout || "").trim().split("\n").slice(-4).join("\n");
+    const output = `${result.stdout || ""}\n${result.stderr || ""}`.trim();
+    // Removing a variable that was never set is a no-op, not a failure.
+    if (/"reason":\s*"env_not_found"/.test(output)) return output;
+    const detail = output.split("\n").slice(-8).join("\n");
     throw new Error(`vercel ${args.join(" ")} failed: ${detail}`);
   }
   return result.stdout;

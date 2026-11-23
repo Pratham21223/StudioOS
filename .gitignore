@@ -39,3 +39,5 @@ playwright/.cache/
 
 # Docker volumes (if bind-mounted locally)
 .infrastructure/
+.vercel
+.env*
