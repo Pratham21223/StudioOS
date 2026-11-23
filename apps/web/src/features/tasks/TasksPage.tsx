@@ -726,10 +726,10 @@ export function TasksPage() {
               return (
                 <section
                   key={status}
-                  className="min-h-[26rem] w-[20rem] shrink-0 snap-start rounded-xl border border-cream-200 bg-cream-100/50"
+                  className="flex h-[32rem] max-h-[calc(100vh-18rem)] min-h-[20rem] w-[20rem] shrink-0 snap-start flex-col rounded-xl border border-cream-200 bg-cream-100/50"
                   aria-label={TASK_STATUS_LABELS[status]}
                 >
-                  <header className="flex items-center justify-between gap-2 border-b border-cream-200 px-4 py-3.5">
+                  <header className="flex shrink-0 items-center justify-between gap-2 border-b border-cream-200 px-4 py-3.5">
                     <span className="text-xs font-semibold uppercase tracking-[0.1em] text-ink-600">
                       {TASK_STATUS_LABELS[status]}
                     </span>
@@ -737,7 +737,7 @@ export function TasksPage() {
                       {items.length}
                     </span>
                   </header>
-                  <div className="space-y-3 p-3">
+                  <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-3 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-cream-300 [&::-webkit-scrollbar-track]:bg-transparent">
                     {items.length === 0 ? (
                       <p className="rounded-lg border border-dashed border-cream-300 px-3 py-10 text-center text-[11px] text-ink-400">
                         Nothing here
