@@ -21,7 +21,7 @@ RUN npm run build -w @studioos/shared \
   && npm run build -w @studioos/api \
   && npm prune --omit=dev
 
-FROM node:24-bookworm-slim AS runtime
+FROM node:24-bookworm-slim AS runtime-base
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates curl \
@@ -45,5 +45,17 @@ EXPOSE 4000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD curl -fsS http://127.0.0.1:4000/health || exit 1
+
+# Worker stage: same runtime as the API, but runs the outbox/queue process.
+# Vercel Daemons select this stage with
+# `infra/docker/Dockerfile.api#worker`.
+FROM runtime-base AS worker
+
+HEALTHCHECK NONE
+CMD ["node", "apps/api/dist/worker.js"]
+
+# Final stage: the HTTP API. Keeping this stage last means an ordinary
+# `docker build` (compose, release workflow) still produces the API image.
+FROM runtime-base AS runtime
 
 CMD ["node", "apps/api/dist/server.js"]

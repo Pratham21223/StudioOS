@@ -19,6 +19,9 @@ logs/
 *.log
 npm-debug.log*
 
+# Vercel project link metadata
+.vercel/
+
 # Test and tooling caches
 .vitest/
 .eslintcache

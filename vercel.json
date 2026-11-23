@@ -1,0 +1,30 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "api": {
+      "root": ".",
+      "runtime": "container",
+      "entrypoint": "infra/docker/Dockerfile.api"
+    },
+    "web": {
+      "root": ".",
+      "runtime": "container",
+      "entrypoint": "infra/docker/Dockerfile.web"
+    }
+  },
+  "rewrites": [
+    { "source": "/health", "destination": { "service": "api" } },
+    { "source": "/health/(.*)", "destination": { "service": "api" } },
+    { "source": "/api", "destination": { "service": "api" } },
+    { "source": "/api/(.*)", "destination": { "service": "api" } },
+    { "source": "/(.*)", "destination": { "service": "web" } }
+  ],
+  "daemons": {
+    "worker": {
+      "root": ".",
+      "entrypoint": "infra/docker/Dockerfile.api#worker",
+      "instances": { "iad1": 1 },
+      "terminationGracePeriodSeconds": 60
+    }
+  }
+}

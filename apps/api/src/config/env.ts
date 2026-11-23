@@ -22,11 +22,16 @@ function loadLocalEnvFile(): void {
 
 loadLocalEnvFile();
 
+const optionalUrl = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z.string().url().optional(),
+);
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().min(1).max(65_535).default(4000),
   WEB_ORIGIN: z.string().url(),
-  API_BASE_URL: z.string().url().optional(),
+  API_BASE_URL: optionalUrl,
   TRUST_PROXY: z
     .enum(["true", "false"])
     .default("false")
@@ -57,7 +62,7 @@ const envSchema = z.object({
   S3_BUCKET: z.string().optional(),
   S3_ACCESS_KEY_ID: z.string().optional(),
   S3_SECRET_ACCESS_KEY: z.string().optional(),
-  S3_ENDPOINT: z.string().url().optional(),
+  S3_ENDPOINT: optionalUrl,
   S3_AUTO_CREATE_BUCKET: z
     .enum(["true", "false"])
     .default("false")
@@ -72,7 +77,7 @@ const envSchema = z.object({
   QUEUE_PREFIX: z.string().min(1).max(32).default("studioos"),
   EMAIL_JOB_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(4),
   EMAIL_JOB_BACKOFF_MS: z.coerce.number().int().min(10).max(600_000).default(5_000),
-  MONITORING_WEBHOOK_URL: z.string().url().optional(),
+  MONITORING_WEBHOOK_URL: optionalUrl,
   API_DOCS_ENABLED: z
     .enum(["true", "false"])
     .default("false")

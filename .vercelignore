@@ -1,0 +1,16 @@
+# Never upload local secrets or environment files to Vercel.
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+.vercel
+node_modules
+**/node_modules
+**/dist
+coverage
+.vitest
+test-results
+playwright-report
+blob-report
+*.log

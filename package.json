@@ -28,7 +28,13 @@
     "api:smoke": "node scripts/api-smoke.mjs",
     "db:migrate": "prisma migrate dev --schema apps/api/prisma/schema.prisma",
     "db:deploy": "prisma migrate deploy --schema apps/api/prisma/schema.prisma",
+    "db:deploy:production": "node scripts/migrate-production.mjs",
     "db:seed": "npm run db:seed -w @studioos/api",
+    "check:external": "node scripts/check-external-services.mjs",
+    "vercel:env": "node scripts/vercel-env-sync.mjs",
+    "vercel:link": "npx --yes vercel@latest link",
+    "vercel:dev": "npx --yes vercel@latest dev",
+    "vercel:deploy": "npx --yes vercel@latest deploy --prod",
     "postinstall": "npm run build -w @studioos/shared",
     "infra:up": "docker compose up -d",
     "infra:down": "docker compose down"
