@@ -6,6 +6,8 @@ approvals — with separate internal and client-facing experiences.
 
 ![StudioOS content board showing the production workflow from brief to publish](docs/screenshots/content-board.png)
 
+![StudioOS overview dashboard with production metrics, content pipeline, tasks, and client approvals](docs/screenshots/overview-dashboard.png)
+
 ## What it does
 
 - **Clients and projects** — client accounts, portal invitations, project teams, and deliverables.
