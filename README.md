@@ -64,6 +64,49 @@ equivalents) from `.env.example`. The callback URL must be
 `<API_BASE_URL>/auth/oauth/<provider>/callback`. OAuth signups get a starter workspace named after
 the user; verified provider emails are linked to existing accounts.
 
+## Demo accounts
+
+`npm run db:seed` creates these demo accounts for the seeded **Figuring Out Media & Education**
+workspace. All five share the password configured in `SEED_PASSWORD` when the seed runs (minimum 12
+characters). Set your own development-only value in the local `.env` before seeding; the seed refuses
+to run when `NODE_ENV=production`.
+
+| Role | Name | Email | Access |
+|---|---|---|---|
+| Admin | Raj Shamani | `admin@figuringout.test` | Full workspace access |
+| Project Manager | Eram Dalwai | `manager@figuringout.test` | Clients, projects, and delivery teams |
+| Producer | Rohan Desai | `producer@figuringout.test` | Assigned projects and content |
+| Editor | Ananya Iyer | `editor@figuringout.test` | Assigned content and tasks |
+| Client contact | Maya Kapoor | `client@figuringout.test` | Client portal for Figuring Out Originals only |
+
+The client account has no internal organization membership. It can only review and approve its own
+client's deliverables. Sign in with any email above and the `SEED_PASSWORD` value used for the seed.
+The [seed-data guide](docs/seed-data.md) shows an example seed command and documents the full seeded
+dataset.
+
+## Permissions
+
+Authorization is centralized in `packages/shared/src/index.ts` (`ROLE_PERMISSIONS`). The client role
+is not an internal organization role: access comes from a `ClientMembership` and is limited to the
+client portal.
+
+| Capability | Admin | Project Manager | Producer | Editor | Client |
+|---|---|---|---|---|---|
+| Manage organization settings | Yes | No | No | No | No |
+| Invite and manage internal members | Yes | No | No | No | No |
+| View organization member directory | Yes | Yes | No | No | No |
+| Manage clients and portal invitations | Yes | Yes | No | No | No |
+| Create and manage projects and teams | Yes | Yes | No | No | No |
+| View projects and content | All | All | Assigned | Assigned | Own client |
+| Create content | Yes | Yes | Yes | No | No |
+| Move content through the workflow | Any stage | Any stage | Production stages; cannot submit to client | Editing → internal review | No |
+| Create and edit tasks | Yes | Yes | Yes | No | No |
+| Update task status | Any task | Any task | Any task | Assigned tasks | No |
+| Upload assets | Yes | Yes | Yes | Yes | Download only |
+| Internal review | Yes | Yes | Yes | Yes | No |
+| Approve or request revisions | No | No | No | No | Own client |
+| Dashboard scope | Organization | Organization | Assigned projects | Personal | No |
+
 ## Documentation
 
 - [Security review](docs/security-review.md)
