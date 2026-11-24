@@ -30,7 +30,7 @@ deployment configuration.
 | Storage completion | `HeadObject` size/MIME verification; conditional completion; no client-supplied key authorization | Asset tests |
 | Downloads | Short-lived signed URL; tenant/project/client authorization before signing | Asset/portal tests |
 | Approval | `expectedVersion` + status/version CAS; review stores version, reviewer, decision, asset | Portal tests |
-| Notifications | Always filtered by `userId`; encrypted outbox payloads; no email bodies in logs | Notification tests |
+| Notifications | Always filtered by `userId`; encrypted outbox payloads; no email bodies or OTP codes in logs; pluggable Resend/Brevo/SMTP transports | Notification tests |
 | Jobs | Bounded retries, exponential backoff, failed-job visibility, outbox failure state | Worker test |
 | Input | Zod bodies/params/query; Prisma parameterization; 1 MB JSON limit | Suite |
 | Headers/CORS | Helmet, narrow origin allowlist, secure web headers in nginx | Health tests |
@@ -63,7 +63,7 @@ deployment configuration.
 | S3 bucket policy/CORS is deployment-specific | Medium | Apply least privilege and restrict CORS to the production origin |
 | Dev S3 mock is in-memory | Low | Never use the mock in production |
 | Web CSP allows inline styles | Low | Required by React style attributes; revisit with nonces |
-| Single email provider implementation (Resend) | Low | Add SES behind the adapter if required |
+| Email deliverability depends on provider setup | Medium | Resend needs a verified domain; Brevo single-sender verification or SMTP avoids domain ownership |
 | Prisma CLI config advisories | Low | CLI is used only for migration jobs against the trusted bundled schema; plan Prisma 7 upgrade |
 
 No known critical tenant-isolation, authorization bypass, or unauthenticated asset-access defect

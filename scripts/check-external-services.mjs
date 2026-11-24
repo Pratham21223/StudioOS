@@ -6,7 +6,7 @@
  *   - PostgreSQL connectivity, schema state, and pending migrations
  *   - Redis connectivity (BullMQ)
  *   - S3-compatible storage read/write/head and bucket CORS
- *   - Resend API key and sender domain
+ *   - Configured email provider (Resend, Brevo, or SMTP)
  *   - Optional monitoring webhook
  *
  * Usage:
@@ -33,6 +33,7 @@ import {
 } from "@aws-sdk/client-s3";
 import dotenv from "dotenv";
 import { Redis } from "ioredis";
+import nodemailer from "nodemailer";
 import pg from "pg";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -79,6 +80,8 @@ const secrets = [
   env.S3_ACCESS_KEY_ID,
   env.S3_SECRET_ACCESS_KEY,
   env.EMAIL_API_KEY,
+  env.BREVO_API_KEY,
+  env.SMTP_PASSWORD,
   env.MONITORING_WEBHOOK_URL,
 ].filter(Boolean);
 
@@ -372,9 +375,130 @@ async function checkStorage() {
   }
 }
 
+function emailFromParts() {
+  const value = String(env.EMAIL_FROM ?? "").trim();
+  const match = /^(.*?)\s*<([^<>]+)>$/.exec(value);
+  return {
+    name: match?.[1]?.trim() || "StudioOS",
+    email: match?.[2]?.trim() || value,
+  };
+}
+
+async function checkBrevo() {
+  if (!requireValue("BREVO_API_KEY", env.BREVO_API_KEY)) return;
+  if (!requireValue("EMAIL_FROM", env.EMAIL_FROM)) return;
+
+  try {
+    const account = await fetch("https://api.brevo.com/v3/account", {
+      headers: { "api-key": env.BREVO_API_KEY },
+      signal: AbortSignal.timeout(10_000),
+    });
+    const detail = redact((await account.text()).slice(0, 300));
+    if (!account.ok) {
+      record("Brevo API key", "FAIL", `HTTP ${account.status}: ${detail}`);
+      return;
+    }
+    record("Brevo API key", "PASS");
+  } catch (error) {
+    record("Brevo API key", "FAIL", error.message);
+    return;
+  }
+
+  if (!options.sendEmail) {
+    record("Brevo test email", "SKIP", "pass --send-email you@example.com to send a real message");
+    return;
+  }
+
+  try {
+    const from = emailFromParts();
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "api-key": env.BREVO_API_KEY,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        sender: from,
+        to: [{ email: options.sendEmail }],
+        subject: "StudioOS external credential check",
+        textContent: "This is a test message from the StudioOS deployment credential check.",
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    const detail = redact((await response.text()).slice(0, 500));
+    if (!response.ok) {
+      record("Brevo test email", "FAIL", `HTTP ${response.status}: ${detail}`);
+      return;
+    }
+    let id = "";
+    try {
+      id = JSON.parse(detail).messageId ?? "";
+    } catch {
+      // ignore
+    }
+    record("Brevo test email", "PASS", id ? `id ${id}` : `HTTP ${response.status}`);
+  } catch (error) {
+    record("Brevo test email", "FAIL", error.message);
+  }
+}
+
+async function checkSmtp() {
+  if (!requireValue("SMTP_HOST", env.SMTP_HOST)) return;
+  if (!requireValue("EMAIL_FROM", env.EMAIL_FROM)) return;
+  if (env.SMTP_USER && !requireValue("SMTP_PASSWORD", env.SMTP_PASSWORD)) return;
+
+  const transport = nodemailer.createTransport({
+    host: env.SMTP_HOST,
+    port: Number(env.SMTP_PORT ?? 587),
+    secure: env.SMTP_SECURE === "true",
+    ...(env.SMTP_USER ? { auth: { user: env.SMTP_USER, pass: env.SMTP_PASSWORD ?? "" } } : {}),
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 20_000,
+  });
+
+  try {
+    await transport.verify();
+    record("SMTP connection", "PASS", `${env.SMTP_HOST}:${env.SMTP_PORT ?? 587}`);
+  } catch (error) {
+    record("SMTP connection", "FAIL", error.message);
+    return;
+  }
+
+  if (!options.sendEmail) {
+    record("SMTP test email", "SKIP", "pass --send-email you@example.com to send a real message");
+    return;
+  }
+
+  try {
+    const info = await transport.sendMail({
+      from: env.EMAIL_FROM,
+      to: options.sendEmail,
+      subject: "StudioOS external credential check",
+      text: "This is a test message from the StudioOS deployment credential check.",
+    });
+    record("SMTP test email", "PASS", info.messageId ? `id ${info.messageId}` : "sent");
+  } catch (error) {
+    record("SMTP test email", "FAIL", error.message);
+  }
+}
+
 async function checkEmail() {
   if (!env.EMAIL_PROVIDER || env.EMAIL_PROVIDER === "console") {
-    record("Email provider", "SKIP", "EMAIL_PROVIDER=console; production should use resend");
+    record(
+      "Email provider",
+      "SKIP",
+      "EMAIL_PROVIDER=console; production should use resend, brevo, or smtp",
+    );
+    return;
+  }
+  if (env.EMAIL_PROVIDER === "brevo") {
+    await checkBrevo();
+    return;
+  }
+  if (env.EMAIL_PROVIDER === "smtp") {
+    await checkSmtp();
     return;
   }
   if (env.EMAIL_PROVIDER !== "resend") {

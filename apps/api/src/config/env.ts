@@ -81,9 +81,18 @@ const envSchema = z.object({
   DOWNLOAD_URL_TTL_MINUTES: z.coerce.number().int().min(1).max(60).default(10),
   ASSET_MAX_BYTES: z.coerce.number().int().min(1).default(262_144_000),
 
-  EMAIL_PROVIDER: z.enum(["console", "resend"]).default("console"),
+  EMAIL_PROVIDER: z.enum(["console", "resend", "brevo", "smtp"]).default("console"),
   EMAIL_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().optional(),
+  BREVO_API_KEY: z.string().optional(),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65_535).default(587),
+  SMTP_SECURE: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
   QUEUE_PREFIX: z.string().min(1).max(32).default("studioos"),
   EMAIL_JOB_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(4),
   EMAIL_JOB_BACKOFF_MS: z.coerce.number().int().min(10).max(600_000).default(5_000),

@@ -141,6 +141,27 @@ The same images can run on Vercel instead of a Docker host:
    domain. Resend can also receive mail with a verified domain, but this application only needs
    outbound delivery; replies go to `EMAIL_FROM` unless a `reply_to` is configured.
 
+   Without a domain, switch to a provider that supports single-sender verification:
+
+   ```dotenv
+   # Brevo: verify a sender at app.brevo.com, then create an API key.
+   EMAIL_PROVIDER=brevo
+   BREVO_API_KEY=replace-with-brevo-api-key
+   EMAIL_FROM=StudioOS <verified-sender@example.com>
+   ```
+
+   Or use SMTP (Gmail app password, Brevo SMTP, SendGrid SMTP, and similar):
+
+   ```dotenv
+   EMAIL_PROVIDER=smtp
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_SECURE=false
+   SMTP_USER=you@gmail.com
+   SMTP_PASSWORD=replace-with-app-password
+   EMAIL_FROM=StudioOS <you@gmail.com>
+   ```
+
 5. Test every external dependency before deploying:
 
    ```bash
@@ -149,9 +170,10 @@ The same images can run on Vercel instead of a Docker host:
    ```
 
    The check connects to PostgreSQL and Redis, reports pending migrations, performs a
-   Put/Head/Get/Delete round-trip in the bucket, verifies the bucket CORS origin, lists the Resend
-   sender domain, optionally sends a real test email, and posts to the monitoring webhook. It never
-   prints credential values. Warnings about `localhost`, missing TLS, or CORS are actionable.
+   Put/Head/Get/Delete round-trip in the bucket, verifies the bucket CORS origin, checks the
+   configured email provider and sender, optionally sends a real test email, and posts to the
+   monitoring webhook. It never prints credential values. Warnings about `localhost`, missing TLS,
+   or CORS are actionable.
 
 6. Apply migrations from a trusted machine:
 

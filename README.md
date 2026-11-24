@@ -66,6 +66,11 @@ equivalents) from `.env.example`. The callback URL must be
 `<API_BASE_URL>/auth/oauth/<provider>/callback`. OAuth signups get a starter workspace named after
 the user; verified provider emails are linked to existing accounts.
 
+Email delivery supports `console`, `resend`, `brevo`, and `smtp`. Resend requires a verified
+sending domain before it can deliver to arbitrary recipients. Brevo supports single-sender
+verification without domain ownership, and the SMTP transport works with Gmail app passwords,
+Brevo SMTP, SendGrid SMTP, and similar providers.
+
 ## Demo accounts
 
 `npm run db:seed` creates these demo accounts for the seeded **Figuring Out Media & Education**
