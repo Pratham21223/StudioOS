@@ -2,7 +2,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "../src/infrastructure/database/prisma.js";
 import { hashPassword } from "../src/shared/password.js";
 import { resolveOAuthUser } from "../src/modules/auth/oauth.service.js";
-import { PASSWORD, createApiClient, registerUser, resetDatabase } from "./helpers.js";
+import {
+  PASSWORD,
+  createApiClient,
+  registerPendingUser,
+  registerUser,
+  resetDatabase,
+} from "./helpers.js";
 
 describe("oauth", () => {
   beforeEach(async () => {
@@ -112,6 +118,28 @@ describe("oauth", () => {
     expect(linked.id).toBe(squatted.id);
     expect(linked.emailVerifiedAt).not.toBeNull();
     expect(linked.passwordHash).toBeNull();
+    expect(await prisma.organization.count()).toBe(1);
+  });
+
+  it("discards a pending signup when OAuth verifies the same email", async () => {
+    const client = await createApiClient();
+    await registerPendingUser(client, {
+      email: "oauth-pending@example.com",
+      organizationName: "Pending OAuth Studio",
+    });
+
+    const user = await resolveOAuthUser({
+      provider: "GOOGLE",
+      providerAccountId: "google-pending",
+      email: "oauth-pending@example.com",
+      name: "OAuth Pending",
+      emailVerified: true,
+    });
+
+    expect(user.emailVerifiedAt).not.toBeNull();
+    expect(
+      await prisma.pendingRegistration.count({ where: { email: "oauth-pending@example.com" } }),
+    ).toBe(0);
     expect(await prisma.organization.count()).toBe(1);
   });
 

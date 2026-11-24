@@ -47,7 +47,7 @@ export const register: RequestHandler = async (req, res) => {
 
   res.status(202).json({
     message: "We sent a 6-digit verification code to your email.",
-    email: result.user.email,
+    email: result.email,
     expiresInMinutes: env.EMAIL_OTP_TTL_MINUTES,
     resendAfterSeconds: env.EMAIL_OTP_RESEND_SECONDS,
     ...(devCode ? { devCode } : {}),

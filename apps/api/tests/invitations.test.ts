@@ -201,6 +201,9 @@ describe("organization invitations", () => {
 
     const user = await prisma.user.findUnique({ where: { email: "pending@example.com" } });
     expect(user!.emailVerifiedAt).not.toBeNull();
+    expect(
+      await prisma.pendingRegistration.count({ where: { email: "pending@example.com" } }),
+    ).toBe(0);
 
     const login = await createApiClient();
     const loginResponse = await login.post("/api/v1/auth/login", {

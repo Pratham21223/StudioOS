@@ -39,19 +39,22 @@ describe("authentication", () => {
     // No session exists until the emailed code is verified.
     expect((await client.get("/api/v1/auth/me")).status).toBe(401);
 
-    const dbUser = await prisma.user.findUnique({
+    // Account data is held in pending_registrations; no User or Organization is
+    // created until the code is verified.
+    expect(await prisma.user.count()).toBe(0);
+    expect(await prisma.organization.count()).toBe(0);
+    expect(await prisma.organizationMembership.count()).toBe(0);
+
+    const pendingRecord = await prisma.pendingRegistration.findUnique({
       where: { email: "ada@example.com" },
     });
-    expect(dbUser).not.toBeNull();
-    expect(dbUser!.passwordHash).not.toBe(PASSWORD);
-    expect(dbUser!.passwordHash).toMatch(/^\$argon2id\$/);
-    expect(dbUser!.emailVerifiedAt).toBeNull();
-
-    const otp = await prisma.emailOtpCode.findFirst({ where: { userId: dbUser!.id } });
-    expect(otp).not.toBeNull();
-    expect(otp!.codeHash).toMatch(/^[a-f0-9]{64}$/);
-    expect(otp!.codeHash).not.toBe(pending.devCode);
-    expect(otp!.consumedAt).toBeNull();
+    expect(pendingRecord).not.toBeNull();
+    expect(pendingRecord!.passwordHash).not.toBe(PASSWORD);
+    expect(pendingRecord!.passwordHash).toMatch(/^\$argon2id\$/);
+    expect(pendingRecord!.organizationName).toBe("Ada Studio");
+    expect(pendingRecord!.codeHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(pendingRecord!.codeHash).not.toBe(pending.devCode);
+    expect(pendingRecord!.attempts).toBe(0);
 
     const queuedEmail = await prisma.outboxEvent.findFirst({ where: { type: "EMAIL" } });
     expect(queuedEmail).not.toBeNull();
@@ -78,17 +81,19 @@ describe("authentication", () => {
     const verifiedUser = await prisma.user.findUnique({
       where: { email: "ada@example.com" },
     });
+    expect(verifiedUser).not.toBeNull();
     expect(verifiedUser!.emailVerifiedAt).not.toBeNull();
+    expect(await prisma.pendingRegistration.count()).toBe(0);
 
     const organizations = await prisma.organization.findMany();
     expect(organizations).toHaveLength(1);
 
     const membership = await prisma.organizationMembership.findFirst({
-      where: { userId: dbUser!.id },
+      where: { userId: verifiedUser!.id },
     });
     expect(membership?.role).toBe("ADMIN");
 
-    const sessions = await prisma.session.findMany({ where: { userId: dbUser!.id } });
+    const sessions = await prisma.session.findMany({ where: { userId: verifiedUser!.id } });
     expect(sessions).toHaveLength(1);
     expect(sessions[0]!.tokenHash).toMatch(/^[a-f0-9]{64}$/);
 
@@ -119,8 +124,10 @@ describe("authentication", () => {
     expect(wrongCode.body.error.code).toBe("OTP_INVALID");
 
     const dbUser = await prisma.user.findUnique({ where: { email: "verify@example.com" } });
-    expect(dbUser!.emailVerifiedAt).toBeNull();
-    const attempts = await prisma.emailOtpCode.findFirst({ where: { userId: dbUser!.id } });
+    expect(dbUser).toBeNull();
+    const attempts = await prisma.pendingRegistration.findUnique({
+      where: { email: "verify@example.com" },
+    });
     expect(attempts!.attempts).toBe(1);
 
     const verified = await client.post("/api/v1/auth/register/verify", {
@@ -145,10 +152,9 @@ describe("authentication", () => {
       organizationName: "Resend Studio",
     });
 
-    // Cooldown suppresses immediate resends, so expire the stored record first.
-    await prisma.emailOtpCode.updateMany({
-      where: { consumedAt: null },
-      data: { createdAt: new Date(Date.now() - 5 * 60 * 1000) },
+    // Cooldown suppresses immediate resends, so age the pending registration.
+    await prisma.pendingRegistration.updateMany({
+      data: { lastSentAt: new Date(Date.now() - 5 * 60 * 1000) },
     });
 
     const resent = await client.post("/api/v1/auth/register/resend", {
@@ -193,6 +199,33 @@ describe("authentication", () => {
     });
     expect(blocked.status).toBe(429);
     expect(blocked.body.error.code).toBe("OTP_ATTEMPTS_EXCEEDED");
+  });
+
+  it("does not overwrite an active pending registration", async () => {
+    const first = await createApiClient();
+    await registerPendingUser(first, {
+      name: "First Owner",
+      email: "pending-duplicate@example.com",
+      organizationName: "First Pending Studio",
+    });
+
+    const second = await createApiClient();
+    const response = await second.post("/api/v1/auth/register", {
+      name: "Second Owner",
+      email: "pending-duplicate@example.com",
+      password: "Another-password-2026!",
+      organizationName: "Attacker Studio",
+    });
+
+    expect(response.status).toBe(409);
+    expect(response.body.error.code).toBe("REGISTRATION_PENDING");
+    expect(await prisma.user.count()).toBe(0);
+
+    const pending = await prisma.pendingRegistration.findUnique({
+      where: { email: "pending-duplicate@example.com" },
+    });
+    expect(pending?.name).toBe("First Owner");
+    expect(pending?.organizationName).toBe("First Pending Studio");
   });
 
   it("sets a HTTP-only, SameSite session cookie", async () => {

@@ -11,6 +11,7 @@ import type { RequestMeta } from "../../shared/request-meta.js";
 import { recordAudit } from "../audit/audit.service.js";
 import { queueEmail } from "../notifications/notification.service.js";
 import { sessionRepository } from "../auth/session.repository.js";
+import { pendingRegistrationRepository } from "../auth/pending-registration.repository.js";
 import { clientMembershipRepository } from "../clients/client-membership.repository.js";
 import { clientRepository } from "../clients/client.repository.js";
 import { membershipRepository } from "../memberships/membership.repository.js";
@@ -436,6 +437,8 @@ export async function acceptInvitation(
         tx,
       );
     }
+
+    await pendingRegistrationRepository.deleteByEmail(invitation.email, tx);
 
     const claimed = await invitationRepository.claim(invitation.id, invitation.tokenHash, now, tx);
     if (claimed.count !== 1) {

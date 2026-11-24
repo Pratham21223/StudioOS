@@ -1,5 +1,11 @@
-import { randomInt } from "node:crypto";
-import type { Organization, OrganizationMembership, Prisma, User } from "@prisma/client";
+import { randomInt, randomUUID } from "node:crypto";
+import type {
+  Organization,
+  OrganizationMembership,
+  PendingRegistration,
+  Prisma,
+  User,
+} from "@prisma/client";
 import { env } from "../../config/env.js";
 import { prisma } from "../../infrastructure/database/prisma.js";
 import { passwordResetEmail, verificationCodeEmail } from "../../infrastructure/email/templates.js";
@@ -16,6 +22,7 @@ import type {
   VerifyEmailInput,
 } from "./auth.validation.js";
 import { emailOtpRepository } from "./email-otp.repository.js";
+import { pendingRegistrationRepository } from "./pending-registration.repository.js";
 import { passwordResetRepository, sessionRepository } from "./session.repository.js";
 import { userRepository } from "../users/user.repository.js";
 import { clientMembershipRepository } from "../clients/client-membership.repository.js";
@@ -52,10 +59,11 @@ function generateOtpCode(): string {
 
 /**
  * OTPs are short numeric codes, so they are keyed with the server secret and
- * scoped to the user. A database leak alone cannot be brute-forced offline.
+ * scoped to the pending registration (or legacy user). A database leak alone
+ * cannot be brute-forced offline.
  */
-function hashOtpCode(userId: string, code: string): string {
-  return hashToken(`email-otp:${userId}:${code}`);
+function hashOtpCode(scopeId: string, code: string): string {
+  return hashToken(`email-otp:${scopeId}:${code}`);
 }
 
 function slugify(value: string): string {
@@ -112,26 +120,15 @@ export async function createWorkspaceWithAdmin(
   return { organization, membership };
 }
 
-async function queueVerificationCode(
+async function queueVerificationEmail(
   tx: Prisma.TransactionClient,
-  user: Pick<User, "id" | "name" | "email">,
+  recipient: Pick<User, "name" | "email">,
   code: string,
-  expiresAt: Date,
 ): Promise<void> {
-  await emailOtpRepository.create(
-    {
-      userId: user.id,
-      purpose: EMAIL_OTP_PURPOSE,
-      codeHash: hashOtpCode(user.id, code),
-      expiresAt,
-    },
-    tx,
-  );
-
   await queueEmail(tx, {
-    to: user.email,
+    to: recipient.email,
     ...verificationCodeEmail({
-      name: user.name,
+      name: recipient.name,
       code,
       expiresInMinutes: env.EMAIL_OTP_TTL_MINUTES,
     }),
@@ -139,9 +136,7 @@ async function queueVerificationCode(
 }
 
 export type RegisterResult = {
-  user: User;
-  organization: Organization;
-  membership: OrganizationMembership;
+  email: string;
   verificationCode: string;
 };
 
@@ -154,40 +149,61 @@ export async function register(input: RegisterInput): Promise<RegisterResult> {
     );
   }
 
+  const now = new Date();
+  const pending = await pendingRegistrationRepository.findByEmail(input.email);
+  if (pending) {
+    if (pending.expiresAt.getTime() > now.getTime()) {
+      throw AppError.conflict(
+        "REGISTRATION_PENDING",
+        "This email is already awaiting verification. Enter the code we sent or request a new one.",
+      );
+    }
+    await pendingRegistrationRepository.deleteExpiredForEmail(input.email, now);
+  }
+
   const passwordHash = await hashPassword(input.password);
   const verificationCode = generateOtpCode();
-  const expiresAt = new Date(Date.now() + EMAIL_OTP_TTL_MS);
+  const pendingId = randomUUID();
+  const expiresAt = new Date(now.getTime() + EMAIL_OTP_TTL_MS);
+  const codeHash = hashOtpCode(pendingId, verificationCode);
 
   try {
-    return await prisma.$transaction(async (tx) => {
-      const user = await userRepository.create(
+    await prisma.$transaction(async (tx) => {
+      const active = await pendingRegistrationRepository.findByEmail(input.email, tx);
+      if (active) {
+        throw AppError.conflict(
+          "REGISTRATION_PENDING",
+          "This email is already awaiting verification. Enter the code we sent or request a new one.",
+        );
+      }
+
+      await pendingRegistrationRepository.create(
         {
-          name: input.name,
+          id: pendingId,
           email: input.email,
+          name: input.name,
           passwordHash,
+          organizationName: input.organizationName,
+          codeHash,
+          expiresAt,
+          lastSentAt: now,
         },
         tx,
       );
 
-      const { organization, membership } = await createWorkspaceWithAdmin(
-        tx,
-        user.id,
-        input.organizationName,
-      );
-
-      await queueVerificationCode(tx, user, verificationCode, expiresAt);
-
-      return { user, organization, membership, verificationCode };
+      await queueVerificationEmail(tx, { name: input.name, email: input.email }, verificationCode);
     });
   } catch (error) {
     if (isUniqueConstraintError(error)) {
       throw AppError.conflict(
-        "REGISTRATION_CONFLICT",
-        "That email or workspace URL is already in use.",
+        "REGISTRATION_PENDING",
+        "This email is already awaiting verification. Enter the code we sent or request a new one.",
       );
     }
     throw error;
   }
+
+  return { email: input.email, verificationCode };
 }
 
 export type AuthSessionResult = {
@@ -231,14 +247,102 @@ async function sessionResult(user: User, sessionToken: string): Promise<AuthSess
   return { user, memberships, clientMemberships, sessionToken };
 }
 
-export async function verifyRegistrationEmail(
-  input: VerifyEmailInput,
+async function verifyPendingRegistration(
+  pending: PendingRegistration,
+  code: string,
   meta: RequestMeta,
+  now: Date,
 ): Promise<AuthSessionResult> {
-  const now = new Date();
-  const user = await userRepository.findByEmail(input.email);
+  if (pending.expiresAt.getTime() <= now.getTime()) {
+    throw AppError.badRequest(
+      "OTP_EXPIRED",
+      "That verification code has expired. Request a new code.",
+    );
+  }
 
-  if (!user || user.status !== "ACTIVE") {
+  if (pending.attempts >= env.EMAIL_OTP_MAX_ATTEMPTS) {
+    throw new AppError(
+      429,
+      "OTP_ATTEMPTS_EXCEEDED",
+      "Too many incorrect attempts. Request a new verification code.",
+    );
+  }
+
+  if (!safeEqual(pending.codeHash, hashOtpCode(pending.id, code))) {
+    await pendingRegistrationRepository.incrementAttempts(pending.id);
+    throw AppError.badRequest("OTP_INVALID", "That verification code is not correct.");
+  }
+
+  const sessionToken = randomToken();
+  let user: User;
+
+  try {
+    user = await prisma.$transaction(async (tx) => {
+      const claimed = await pendingRegistrationRepository.claim(pending.id, pending.codeHash, tx);
+      if (claimed.count !== 1) {
+        throw AppError.badRequest(
+          "OTP_INVALID",
+          "That verification code is invalid or has expired. Request a new code.",
+        );
+      }
+
+      const existingUser = await userRepository.findByEmail(pending.email, tx);
+      if (existingUser) {
+        throw AppError.conflict(
+          "EMAIL_ALREADY_REGISTERED",
+          "An account with that email already exists. Sign in instead.",
+        );
+      }
+
+      const created = await userRepository.create(
+        {
+          name: pending.name,
+          email: pending.email,
+          passwordHash: pending.passwordHash,
+          emailVerifiedAt: now,
+        },
+        tx,
+      );
+
+      await createWorkspaceWithAdmin(tx, created.id, pending.organizationName);
+
+      await sessionRepository.create(
+        {
+          userId: created.id,
+          tokenHash: hashToken(sessionToken),
+          expiresAt: sessionExpiry(),
+          ipAddress: meta.ipAddress ?? null,
+          userAgent: normalizeUserAgent(meta.userAgent),
+        },
+        tx,
+      );
+
+      return created;
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      throw AppError.conflict(
+        "EMAIL_ALREADY_REGISTERED",
+        "An account with that email already exists. Sign in instead.",
+      );
+    }
+    throw error;
+  }
+
+  return sessionResult(user, sessionToken);
+}
+
+/**
+ * Accounts created by the pre-pending-registration signup flow may still be
+ * unverified. They keep verifying against their EmailOtpCode rows.
+ */
+async function verifyLegacyRegistration(
+  user: User,
+  code: string,
+  meta: RequestMeta,
+  now: Date,
+): Promise<AuthSessionResult> {
+  if (user.status !== "ACTIVE") {
     throw AppError.badRequest(
       "OTP_INVALID",
       "That verification code is invalid or has expired. Request a new code.",
@@ -268,7 +372,7 @@ export async function verifyRegistrationEmail(
     );
   }
 
-  if (!safeEqual(otp.codeHash, hashOtpCode(user.id, input.code))) {
+  if (!safeEqual(otp.codeHash, hashOtpCode(user.id, code))) {
     await emailOtpRepository.incrementAttempts(otp.id);
     throw AppError.badRequest("OTP_INVALID", "That verification code is not correct.");
   }
@@ -303,26 +407,81 @@ export async function verifyRegistrationEmail(
   return sessionResult(verifiedUser, sessionToken);
 }
 
+export async function verifyRegistrationEmail(
+  input: VerifyEmailInput,
+  meta: RequestMeta,
+): Promise<AuthSessionResult> {
+  const now = new Date();
+  const pending = await pendingRegistrationRepository.findByEmail(input.email);
+  if (pending) {
+    return verifyPendingRegistration(pending, input.code, meta, now);
+  }
+
+  const user = await userRepository.findByEmail(input.email);
+  if (!user) {
+    throw AppError.badRequest(
+      "OTP_INVALID",
+      "That verification code is invalid or has expired. Request a new code.",
+    );
+  }
+
+  return verifyLegacyRegistration(user, input.code, meta, now);
+}
+
 export async function resendRegistrationCode(
   input: ResendVerificationInput,
-): Promise<{ user: User; verificationCode: string } | null> {
+): Promise<{ verificationCode: string } | null> {
+  const now = new Date();
+  const pending = await pendingRegistrationRepository.findByEmail(input.email);
+
+  if (pending) {
+    if (now.getTime() - pending.lastSentAt.getTime() < EMAIL_OTP_RESEND_MS) {
+      return null;
+    }
+
+    const verificationCode = generateOtpCode();
+    const expiresAt = new Date(now.getTime() + EMAIL_OTP_TTL_MS);
+    const codeHash = hashOtpCode(pending.id, verificationCode);
+
+    await prisma.$transaction(async (tx) => {
+      await pendingRegistrationRepository.updateCode(
+        pending.id,
+        { codeHash, expiresAt, lastSentAt: now },
+        tx,
+      );
+      await queueVerificationEmail(tx, pending, verificationCode);
+    });
+
+    return { verificationCode };
+  }
+
+  // Legacy unverified accounts created before pending registrations existed.
   const user = await userRepository.findByEmail(input.email);
   if (!user || user.status !== "ACTIVE" || user.emailVerifiedAt) return null;
 
   const latest = await emailOtpRepository.findLatest(user.id, EMAIL_OTP_PURPOSE);
-  if (latest && Date.now() - latest.createdAt.getTime() < EMAIL_OTP_RESEND_MS) {
+  if (latest && now.getTime() - latest.createdAt.getTime() < EMAIL_OTP_RESEND_MS) {
     return null;
   }
 
   const verificationCode = generateOtpCode();
-  const expiresAt = new Date(Date.now() + EMAIL_OTP_TTL_MS);
+  const expiresAt = new Date(now.getTime() + EMAIL_OTP_TTL_MS);
 
   await prisma.$transaction(async (tx) => {
     await emailOtpRepository.deleteActiveForUser(user.id, EMAIL_OTP_PURPOSE, tx);
-    await queueVerificationCode(tx, user, verificationCode, expiresAt);
+    await emailOtpRepository.create(
+      {
+        userId: user.id,
+        purpose: EMAIL_OTP_PURPOSE,
+        codeHash: hashOtpCode(user.id, verificationCode),
+        expiresAt,
+      },
+      tx,
+    );
+    await queueVerificationEmail(tx, user, verificationCode);
   });
 
-  return { user, verificationCode };
+  return { verificationCode };
 }
 
 export async function login(
@@ -331,14 +490,28 @@ export async function login(
   previousSessionToken?: string | null,
 ): Promise<AuthSessionResult> {
   const user = await userRepository.findByEmail(input.email);
+  const pending = user ? null : await pendingRegistrationRepository.findByEmail(input.email);
+  const passwordHash = user?.passwordHash ?? pending?.passwordHash ?? null;
 
-  if (!user || !user.passwordHash) {
+  if (!passwordHash) {
     await verifyPassword(await getDummyHash(), input.password);
     throw new AppError(401, "INVALID_CREDENTIALS", "Email or password is incorrect.");
   }
 
-  const passwordValid = await verifyPassword(user.passwordHash, input.password);
-  if (!passwordValid || user.status !== "ACTIVE") {
+  const passwordValid = await verifyPassword(passwordHash, input.password);
+  if (!passwordValid) {
+    throw new AppError(401, "INVALID_CREDENTIALS", "Email or password is incorrect.");
+  }
+
+  if (pending) {
+    throw new AppError(
+      403,
+      "EMAIL_NOT_VERIFIED",
+      "Verify your email address before signing in. We can send you a new code.",
+    );
+  }
+
+  if (!user || user.status !== "ACTIVE") {
     throw new AppError(401, "INVALID_CREDENTIALS", "Email or password is incorrect.");
   }
 

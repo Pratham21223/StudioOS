@@ -549,6 +549,6 @@ export async function uploadAssetRecord(
 
 export async function resetDatabase(): Promise<void> {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE TABLE "outbox_events", "notifications", "reviews", "asset_uploads", "assets", "audit_logs", "email_otp_codes", "oauth_accounts", "password_reset_tokens", "invitations", "sessions", "workflow_events", "tasks", "content_items", "project_memberships", "projects", "client_memberships", "clients", "organization_memberships", "organizations", "users" RESTART IDENTITY CASCADE',
+    'TRUNCATE TABLE "outbox_events", "notifications", "reviews", "asset_uploads", "assets", "audit_logs", "email_otp_codes", "pending_registrations", "oauth_accounts", "password_reset_tokens", "invitations", "sessions", "workflow_events", "tasks", "content_items", "project_memberships", "projects", "client_memberships", "clients", "organization_memberships", "organizations", "users" RESTART IDENTITY CASCADE',
   );
 }

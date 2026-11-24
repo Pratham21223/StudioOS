@@ -77,6 +77,10 @@ export async function resolveOAuthUser(identity: OAuthIdentity): Promise<User> {
           data: { emailVerifiedAt: new Date() },
         });
       }
+
+      await tx.pendingRegistration.deleteMany({
+        where: { OR: [{ email }, { email: user.email }] },
+      });
       return user;
     }
 
@@ -121,6 +125,8 @@ export async function resolveOAuthUser(identity: OAuthIdentity): Promise<User> {
         email,
       },
     });
+
+    await tx.pendingRegistration.deleteMany({ where: { email } });
 
     return user;
   });

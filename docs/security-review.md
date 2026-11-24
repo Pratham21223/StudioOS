@@ -17,7 +17,7 @@ deployment configuration.
 | Area | Control | Evidence |
 |---|---|---|
 | Passwords | Argon2id, 12+ chars, generic login errors, dummy hash | Auth tests |
-| Signup verification | 6-digit OTP hashed with HMAC and scoped to the user, 10-minute expiry, 5-attempt cap, resend cooldown, single-use claim, no session before verification | Auth tests |
+| Signup verification | Pending registration row holds signup data until OTP; no User, Organization, or session exists before verification; HMAC-hashed code, 10-minute expiry, 5-attempt cap, resend cooldown, single-use claim | Auth tests |
 | OAuth | Passport Google/GitHub strategies, HTTP-only state cookie validated on callback, verified provider email required, account links stored separately | OAuth tests |
 | Sessions | Opaque token, HMAC hash at rest, HTTP-only/SameSite cookie, rotation on login | Auth tests |
 | CSRF | Double-submit cookie and header on unsafe methods | Auth/API tests |

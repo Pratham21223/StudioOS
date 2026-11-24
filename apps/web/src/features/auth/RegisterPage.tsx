@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { AuthLayout } from "../../components/AuthLayout";
 import { Alert, Button, FormField, Input, PasswordInput } from "../../components/ui";
-import { getErrorMessage, getFieldErrors } from "../../lib/api";
+import { getErrorMessage, getFieldErrors, isApiError } from "../../lib/api";
 import { useAuth } from "../../app/AuthProvider";
 import { OAuthButtons } from "./OAuthButtons";
 
@@ -36,6 +36,10 @@ export function RegisterPage() {
         },
       });
     } catch (submitError) {
+      if (isApiError(submitError) && submitError.code === "REGISTRATION_PENDING") {
+        navigate(`/verify-email?email=${encodeURIComponent(email)}`, { replace: true });
+        return;
+      }
       setError(getErrorMessage(submitError));
       setFieldErrors(getFieldErrors(submitError));
     } finally {
