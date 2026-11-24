@@ -83,6 +83,7 @@ describe("notifications, outbox email, and deadline reminders", () => {
     const email = await latestEmail();
     expect(email.to).toBe("editor@alpha.test");
     expect(email.subject).toContain("Notify the editor");
+    expect(email.html).toContain("Notify the editor");
     expect(email.ciphertext).not.toContain("editor@alpha.test");
     expect(email.ciphertext).not.toContain("Notify the editor");
 

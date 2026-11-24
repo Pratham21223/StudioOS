@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import { prisma } from "../src/infrastructure/database/prisma.js";
-import { hashToken } from "../src/shared/crypto.js";
+import { decryptPayload, hashToken } from "../src/shared/crypto.js";
 import {
   NEW_PASSWORD,
   PASSWORD,
@@ -55,6 +55,12 @@ describe("authentication", () => {
 
     const queuedEmail = await prisma.outboxEvent.findFirst({ where: { type: "EMAIL" } });
     expect(queuedEmail).not.toBeNull();
+    const emailPayload = decryptPayload<{ html?: string; text: string }>(
+      queuedEmail!.payloadCiphertext,
+    );
+    expect(emailPayload.text).toContain(pending.devCode);
+    expect(emailPayload.html).toContain("Your verification code");
+    expect(emailPayload.html).toContain(pending.devCode);
 
     const verifyResponse = await client.post("/api/v1/auth/register/verify", {
       email: "ada@example.com",

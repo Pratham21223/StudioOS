@@ -1,6 +1,7 @@
 import type { NotificationType, Prisma } from "@prisma/client";
 import { prisma } from "../../infrastructure/database/prisma.js";
 import { env } from "../../config/env.js";
+import { notificationEmail } from "../../infrastructure/email/templates.js";
 import { encryptPayload } from "../../shared/crypto.js";
 import { AppError } from "../../shared/errors.js";
 import type { DbClient } from "../users/user.repository.js";
@@ -9,6 +10,7 @@ export type EmailPayload = {
   to: string;
   subject: string;
   text: string;
+  html?: string;
   replyTo?: string;
 };
 
@@ -24,6 +26,7 @@ export async function queueEmail(
         to: input.to,
         subject: input.subject,
         text: input.text,
+        ...(input.html ? { html: input.html } : {}),
         ...(input.replyTo ? { replyTo: input.replyTo } : {}),
       } satisfies EmailPayload),
     },
@@ -76,7 +79,7 @@ export async function notifyUser(
 ) {
   const user = await db.user.findUnique({
     where: { id: input.userId },
-    select: { id: true, email: true, status: true },
+    select: { id: true, name: true, email: true, status: true },
   });
   if (!user || user.status !== "ACTIVE") return null;
 
@@ -93,10 +96,12 @@ export async function notifyUser(
   await queueEmail(db, {
     organizationId: input.organizationId,
     to: user.email,
-    subject: input.title,
-    text: [input.body, input.url ? `Open in StudioOS: ${input.url}` : null]
-      .filter(Boolean)
-      .join("\n\n"),
+    ...notificationEmail({
+      name: user.name,
+      title: input.title,
+      body: input.body ?? null,
+      url: input.url ?? null,
+    }),
   });
   return notification;
 }
@@ -239,8 +244,12 @@ export async function notifyContentAudience(db: DbClient, input: NotifyAudienceI
       await queueEmail(db, {
         organizationId: input.organizationId,
         to: user.email,
-        subject: input.title,
-        text: [input.body, `Open in StudioOS: ${url}`].filter(Boolean).join("\n\n"),
+        ...notificationEmail({
+          name: user.name,
+          title: input.title,
+          body: input.body ?? null,
+          url,
+        }),
       });
     }
   }

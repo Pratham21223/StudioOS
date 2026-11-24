@@ -62,6 +62,7 @@ const resendAdapter: EmailAdapter = {
         to: [message.to],
         subject: message.subject,
         text: message.text,
+        ...(message.html ? { html: message.html } : {}),
         ...(message.replyTo ? { reply_to: message.replyTo } : {}),
       }),
       signal: AbortSignal.timeout(10_000),
@@ -97,6 +98,7 @@ const brevoAdapter: EmailAdapter = {
         to: [{ email: message.to }],
         subject: message.subject,
         textContent: message.text,
+        ...(message.html ? { htmlContent: message.html } : {}),
         ...(message.replyTo ? { replyTo: { email: message.replyTo } } : {}),
       }),
       signal: AbortSignal.timeout(10_000),
@@ -146,6 +148,7 @@ const smtpAdapter: EmailAdapter = {
       to: message.to,
       subject: message.subject,
       text: message.text,
+      ...(message.html ? { html: message.html } : {}),
       ...(message.replyTo ? { replyTo: message.replyTo } : {}),
     });
   },

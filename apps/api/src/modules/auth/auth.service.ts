@@ -2,6 +2,7 @@ import { randomInt } from "node:crypto";
 import type { Organization, OrganizationMembership, Prisma, User } from "@prisma/client";
 import { env } from "../../config/env.js";
 import { prisma } from "../../infrastructure/database/prisma.js";
+import { passwordResetEmail, verificationCodeEmail } from "../../infrastructure/email/templates.js";
 import { hashToken, randomToken, safeEqual } from "../../shared/crypto.js";
 import { AppError, isUniqueConstraintError } from "../../shared/errors.js";
 import { hashPassword, verifyPassword } from "../../shared/password.js";
@@ -129,8 +130,11 @@ async function queueVerificationCode(
 
   await queueEmail(tx, {
     to: user.email,
-    subject: "Your StudioOS verification code",
-    text: `Hi ${user.name},\n\nYour StudioOS verification code is ${code}.\n\nEnter it to finish creating your account. The code expires in ${env.EMAIL_OTP_TTL_MINUTES} minutes.\n\nIf you did not create a StudioOS account, you can ignore this email.`,
+    ...verificationCodeEmail({
+      name: user.name,
+      code,
+      expiresInMinutes: env.EMAIL_OTP_TTL_MINUTES,
+    }),
   });
 }
 
@@ -398,8 +402,11 @@ export async function requestPasswordReset(
 
     await queueEmail(tx, {
       to: user.email,
-      subject: "Reset your StudioOS password",
-      text: `Hi ${user.name},\n\nReset your StudioOS password: ${env.PASSWORD_RESET_BASE_URL}?token=${encodeURIComponent(token)}\n\nThis link expires in ${env.PASSWORD_RESET_TTL_MINUTES} minutes. If you did not request this, you can ignore this email.`,
+      ...passwordResetEmail({
+        name: user.name,
+        resetUrl: `${env.PASSWORD_RESET_BASE_URL}?token=${encodeURIComponent(token)}`,
+        expiresInMinutes: env.PASSWORD_RESET_TTL_MINUTES,
+      }),
     });
   });
 

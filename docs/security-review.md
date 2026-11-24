@@ -30,7 +30,7 @@ deployment configuration.
 | Storage completion | `HeadObject` size/MIME verification; conditional completion; no client-supplied key authorization | Asset tests |
 | Downloads | Short-lived signed URL; tenant/project/client authorization before signing | Asset/portal tests |
 | Approval | `expectedVersion` + status/version CAS; review stores version, reviewer, decision, asset | Portal tests |
-| Notifications | Always filtered by `userId`; encrypted outbox payloads; no email bodies or OTP codes in logs; pluggable Resend/Brevo/SMTP transports | Notification tests |
+| Notifications | Always filtered by `userId`; encrypted outbox payloads; HTML templates escape user content; no email bodies or OTP codes in logs; pluggable Resend/Brevo/SMTP transports | Notification tests |
 | Jobs | Bounded retries, exponential backoff, failed-job visibility, outbox failure state | Worker test |
 | Input | Zod bodies/params/query; Prisma parameterization; 1 MB JSON limit | Suite |
 | Headers/CORS | Helmet, narrow origin allowlist, secure web headers in nginx | Health tests |

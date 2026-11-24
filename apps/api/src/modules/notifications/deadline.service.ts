@@ -1,5 +1,6 @@
 import { env } from "../../config/env.js";
 import { prisma } from "../../infrastructure/database/prisma.js";
+import { notificationEmail } from "../../infrastructure/email/templates.js";
 import { createNotification, queueEmail } from "./notification.service.js";
 
 function dateKey(date: Date): string {
@@ -81,8 +82,12 @@ export async function sendDeadlineReminders(now = new Date()): Promise<{ notifie
       await queueEmail(tx, {
         organizationId: task.organizationId,
         to: assignee.email,
-        subject: title,
-        text: `${body}\n\nOpen StudioOS: ${env.WEB_ORIGIN}`,
+        ...notificationEmail({
+          name: assignee.name,
+          title,
+          body,
+          url: `${env.WEB_ORIGIN}/orgs/${task.organizationId}/tasks`,
+        }),
       });
       return true;
     });

@@ -1,6 +1,7 @@
 import type { Client, Invitation, OrgRole, User } from "@prisma/client";
 import { env } from "../../config/env.js";
 import { prisma } from "../../infrastructure/database/prisma.js";
+import { invitationEmail } from "../../infrastructure/email/templates.js";
 import type { AuthContext, TenantContext } from "../../shared/context.js";
 import { hashToken, randomToken } from "../../shared/crypto.js";
 import { AppError } from "../../shared/errors.js";
@@ -140,8 +141,12 @@ export async function createInvitation(
     await queueEmail(tx, {
       organizationId: tenant.organizationId,
       to: record.email,
-      subject: `You're invited to ${tenant.organization.name} on StudioOS`,
-      text: `${tenant.organization.name} invited you to join their workspace as ${record.role ?? "a member"}.\n\nAccept the invitation: ${invitationLink(token)}\n\nThis link expires in ${env.INVITATION_TTL_HOURS} hours.`,
+      ...invitationEmail({
+        organizationName: tenant.organization.name,
+        role: record.role,
+        inviteUrl: invitationLink(token),
+        expiresInHours: env.INVITATION_TTL_HOURS,
+      }),
     });
 
     return record;
@@ -232,8 +237,12 @@ export async function createClientInvitation(
     await queueEmail(tx, {
       organizationId: tenant.organizationId,
       to: record.email,
-      subject: `${tenant.organization.name} invited you to review ${client.name}`,
-      text: `${tenant.organization.name} invited you to the client portal for ${client.name} on StudioOS.\n\nAccept the invitation: ${invitationLink(token)}\n\nThis link expires in ${env.INVITATION_TTL_HOURS} hours.`,
+      ...invitationEmail({
+        organizationName: tenant.organization.name,
+        clientName: client.name,
+        inviteUrl: invitationLink(token),
+        expiresInHours: env.INVITATION_TTL_HOURS,
+      }),
     });
 
     return record;
